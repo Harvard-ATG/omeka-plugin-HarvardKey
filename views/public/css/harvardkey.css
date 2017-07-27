@@ -1,0 +1,25 @@
+.harvardkey_choose {
+    width: 400px;
+}
+
+.harvardkey_choose_box {
+    display: block;
+    text-align: center;
+    font-size: 18px;
+    margin: 10px 0 0 0;
+    padding: 15px 0;
+}
+a.harvardkey_choose_primary,
+a.harvardkey_choose_primary:link,
+a.harvardkey_choose_primary:visited {
+    background: #A41034;
+    color: #FFF;
+    border-radius: 5px;
+}
+a.harvardkey_choose_primary:hover {
+    color: #000;
+}
+.harvardkey_choose_secondary {
+    background-color: #efefef;
+    border-radius: 5px;
+}
