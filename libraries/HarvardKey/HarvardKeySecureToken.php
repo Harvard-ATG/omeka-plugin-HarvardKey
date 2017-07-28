@@ -43,7 +43,7 @@ class HarvardKeySecureToken
 
     // Required and optional fields that may be present in a token
     protected $_tokenFieldsRequired = array("id", "t");
-    protected $_tokenFieldsOptional = array("role");
+    protected $_tokenFieldsOptional = array("name", "email", "role");
 
     // Token settings
     protected $_maxTokenAge = 60;    // max seconds before a token expires
@@ -136,15 +136,11 @@ class HarvardKeySecureToken
 
     public function hasRequiredFields()
     {
-        $this->_debug("has_required_fields()");
-
         $has_required = is_array($this->_tokenData);
         foreach($this->_tokenFieldsRequired as $f) {
             $has_required = $has_required && array_key_exists($f, $this->_tokenData) && !is_null($this->_tokenData[$f]);
         }
-
-        $this->_debug("has_required? = ".($has_required?"YES":"NO"));
-
+        $this->_debug("has_required_fields(): ".($has_required?"YES":"NO"));
         return $has_required;
     }
 
@@ -163,6 +159,16 @@ class HarvardKeySecureToken
     public function getRole()
     {
         return $this->_tokenData['role'];
+    }
+
+    public function getName()
+    {
+        return $this->_tokenData['name'];
+    }
+
+    public function getEmail()
+    {
+        return $this->_tokenData['email'];
     }
 
     public function expires(int $seconds)
