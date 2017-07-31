@@ -32,58 +32,71 @@ class HarvardKey_AuthController extends Omeka_Controller_AbstractActionControlle
     }
 
     public function loginAction() {
+        $this->_log("loginAction()");
         $this->_helper->viewRenderer->setNoRender();
-        $cookie = $this->_getCookie();
-        $service_url = $this->_settings->get("service_url").'?return_to='.rawurlencode(WEB_DIR . $this->view->url());
+        $cookie = $_COOKIE[$this->_settings->get("cookie_name")];
+        $session = new Zend_Session_Namespace;
 
-        if(is_null($cookie)) {
-            $msg = "No cookie. Please authenticate: $service_url";
-            $this->_debug($msg);
+        if(!$cookie) {
+            $msg = "Token not found in cookies. Please authenticate.";
+            $this->_log($msg);
             $this->getResponse()->setBody($msg);
-            //header("Location: $url");
+            $this->_redirectToHarvardKeyService();
             return;
         }
 
-        $token = new HarvardKeySecureToken($cookie, $this->_settings->get("secret_key"));
-        $token->expires(intval($this->_settings->get("expires", 600)));
+        $secret_key = $this->_settings->get("secret_key");
+        $expires = intval($this->_settings->get("expires", 600));
+        $token = new HarvardKeySecureToken($cookie, $secret_key, $expires);
+        if(!$token->isValid()) {
+            $this->_log(implode(",", $token->validationErrors()));
+            $this->getResponse()->setBody("Token invalid. Please re-authenticate.");
+            $this->_redirectToHarvardKeyService();
+            return;
+        }
 
         $authAdapter = new HarvardKey_Auth_Adapter($this->_helper->db->getDb(), $token);
         $authResult = $this->_auth->authenticate($authAdapter);
         if(!$authResult->isValid()) {
             $msg = "Authentication Failed";
-            if($token->isExpired()) {
-                $msg = "Expired token. Please authenticate: $service_url";
-            }
-            $this->_debug($msg);
+            $this->_log($msg);
             $this->getResponse()->setBody($msg);
+            $this->_helper->flashMessenger($msg, 'error');
             return;
         }
 
-        $this->_debug("Authentication Successful! Logged in as {$authResult->getIdentity()}");
-        $session = new Zend_Session_Namespace;
-        if ($session->redirect) {
-            $this->_helper->redirector->gotoUrl($session->redirect);
-        } else {
-            $this->_helper->redirector->gotoUrl('/');
-        }
+        $this->_log("Authentication Successful. Logged in as {$authResult->getIdentity()}");
+
+        $this->_helper->redirector->gotoUrl('/');
     }
 
-    protected function _getCookie()
+
+    protected function _redirectToHarvardKeyService()
     {
-        $cookieName = $this->_settings->get("cookie_name");
-        if(array_key_exists($cookieName, $_COOKIE)) {
-            $cookieValue = $_COOKIE[$cookieName];
-            $this->_debug("got cookie $cookieName = $cookieValue");
+        $redirectcookie = "harvardkeyredirects";
+        $redirectvalue = intval($_COOKIE[$redirectcookie], 10);
+        $this->_log("cookie $redirectcookie = $redirectvalue");
+        if(isset($redirectvalue) && $redirectvalue > 0) {
+            setcookie($redirectcookie, 0);
+            return false;
         } else {
-            $cookieValue = null;
-            $this->_debug("failed to get cookie $cookieName from cookie jar: ".var_export($_COOKIE, 1));
+            setcookie($redirectcookie, 1 + $redirectvalue);
         }
-        return $cookieValue;
+        $service_url = $this->_settings->get("service_url").'?return_to='.rawurlencode(WEB_DIR . $this->view->url());
+        $this->_log("Redirecting to: $service_url");
+        header("Location: $service_url");
+        return true;
     }
 
     protected function _debug(string $msg)
     {
         debug(get_class($this) . ": $msg");
+        return $this;
+    }
+
+    protected function _log(string $msg)
+    {
+        _log(get_class($this) . ": $msg");
         return $this;
     }
 }

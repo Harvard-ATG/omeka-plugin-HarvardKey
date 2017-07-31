@@ -29,21 +29,21 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
     */
     public function authenticate()
     {
-        $this->_debug("authenticate()");
+        $this->_log("authenticate()");
         if(!$this->_token->isValid()) {
-            $this->_log("harvard key token is invalid -- auth result is FAILURE");
+            $this->_log("harvard key token is invalid (AUTH FAILURE)");
             return new Zend_Auth_Result(Zend_Auth_Result::FAILURE_CREDENTIAL_INVALID, null);
         }
 
         $harvard_key_user = $this->_createOrUpdateUser();
         if(!$harvard_key_user) {
-            $this->_log("harvard key user not found -- auth result is FAILURE");
+            $this->_log("harvard key user not found (AUTH FAILURE)");
             return new Zend_Auth_Result(Zend_Auth_result::FAILURE, null);
         }
 
         $omeka_user = $this->_findOmekaUserById($harvard_key_user->omeka_user_id);
         if(!$omeka_user->active) {
-            $this->_log("omeka user {$omeka_user->id} is inactive - auth result is FAILURE");
+            $this->_log("omeka user {$omeka_user->id} is inactive (AUTH FAILURE)");
             return new Zend_Auth_Result(Zend_Auth_result::FAILURE, $harvard_key_user->omeka_user_id);
         }
 
@@ -52,7 +52,7 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
 
     protected function _createOrUpdateUser()
     {
-        $this->_debug("_createOrUpdateUser()");
+        $this->_log("_createOrUpdateUser()");
         $harvard_key_id = $this->_token->getId();
 
         // Create a new harvard key user entry if none exists
@@ -85,7 +85,7 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
 
     protected function _createOmekaUser($harvard_key_user)
     {
-        $this->_debug("_createOmekaUser()");
+        $this->_log("_createOmekaUser()");
 
         // Get attributes provided by the harvard key token
         $harvard_key_role = $this->_token->getRole();
@@ -106,7 +106,7 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
             "password" => "unuseablepassword"
         );
 
-        $this->_debug("omeka user values: ".var_export($omeka_user_values,1));
+        $this->_log("omeka user values: ".var_export($omeka_user_values,1));
 
         // Insert into the database and then link the omeka user to the harvard key identity
         $omeka_user_id = $this->_db->insert('User', $omeka_user_values);

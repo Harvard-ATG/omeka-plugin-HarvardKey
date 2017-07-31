@@ -5,12 +5,10 @@ class HarvardKey_DebugController extends Omeka_Controller_AbstractActionControll
     public function indexAction() {
         $this->_helper->viewRenderer->setNoRender();
         $request = $this->getRequest();
-        $value = $request->getCookie("harvardkeyjwt");
         $response = $this->getResponse();
-        if(is_null($value)) {
-            $response->setBody("No cookie!");
-        } else {
-            $response->setBody($value);
-        }
+        debug("request = " . var_export($request,1));
+        debug("cookies = " . var_export($_COOKIE,1));
+        debug("current_user = ".var_export($this->getCurrentUser(), 1));
+        $response->setBody("debug action");
     }
 }
