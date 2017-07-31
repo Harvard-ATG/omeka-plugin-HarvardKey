@@ -132,7 +132,7 @@ class HarvardKeySecureToken
 
     public function isValid()
     {
-        return $this->isAuthentic() && !$this->isExpired() && $this->hasRequiredFields();
+        return $this->isAuthentic() && $this->hasRequiredFields() && !$this->isExpired();
     }
 
     public function validationErrors()
@@ -140,12 +140,10 @@ class HarvardKeySecureToken
         $errors = array();
         if(!$this->isAuthentic()) {
             $errors[] = "Token could not be authenticated";
-        }
-        if($this->isExpired()) {
+        } else if(!$this->hasRequiredFields()) {
+            $errors[] = "Token missing required fields";
+        } else if($this->isExpired()) {
             $errors[] = "Token is expired";
-        }
-        if(!$this->hasRequiredFields()) {
-            $errors[] = "Token is has missing required fields";
         }
         return $errors;
     }
