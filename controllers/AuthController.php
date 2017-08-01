@@ -15,7 +15,8 @@ class HarvardKey_AuthController extends Omeka_Controller_AbstractActionControlle
         $this->_settings = new Zend_Config_Ini(HARVARDKEY_PLUGIN_DIR . DIRECTORY_SEPARATOR . 'plugin.ini', 'auth');
     }
 
-    public function chooseAction() {
+    protected function _handlePublicAction()
+    {
         #$this->_debug(var_export($this->getCurrentUser(), 1));
         if (is_admin_theme()) {
             $header = 'login-header';
@@ -27,46 +28,38 @@ class HarvardKey_AuthController extends Omeka_Controller_AbstractActionControlle
 
         $this->view->header = $header;
         $this->view->footer = $footer;
+    }
+
+    public function chooseAction() {
+        $this->_handlePublicAction();
         $this->view->assign('omekaLoginUrl', $this->view->url('/harvard-key/users/login'));
-        $this->view->assign('harvardKeyLoginUrl', $this->view->url('/harvard-key/auth/login'));
+        $this->view->assign('harvardKeyLoginUrl', $this->_getHarvardKeyServiceUrl());
     }
 
     public function loginAction() {
-        $this->_log("loginAction()");
-        $this->_helper->viewRenderer->setNoRender();
+        $this->_handlePublicAction();
+        $this->view->assign('chooseUrl', $this->view->url('/harvard-key/auth/choose'));
+
         $cookie = $_COOKIE[$this->_settings->get("cookie_name")];
-        $session = new Zend_Session_Namespace;
-
-        if(!$cookie) {
-            $msg = "Token not found in cookies. Please authenticate.";
-            $this->_log($msg);
-            $this->getResponse()->setBody($msg);
-            $this->_redirectToHarvardKeyService();
-            return;
-        }
-
         $secret_key = $this->_settings->get("secret_key");
         $expires = intval($this->_settings->get("expires", 600));
-        $token = new HarvardKeySecureToken($cookie, $secret_key, $expires);
-        if(!$token->isValid()) {
-            $this->_log(implode(",", $token->validationErrors()));
-            $this->getResponse()->setBody("Token invalid. Please re-authenticate.");
-            $this->_redirectToHarvardKeyService();
+
+        if(!$cookie) {
+            $this->view->assign("authResult", "Authentication Failed");
+            $this->view->assign('authMessages', array("Please ensure that you have cookies enabled in your browser and then try logging in again."));
             return;
         }
 
+        $token = new HarvardKeySecureToken($cookie, $secret_key, $expires);
         $authAdapter = new HarvardKey_Auth_Adapter($this->_helper->db->getDb(), $token);
         $authResult = $this->_auth->authenticate($authAdapter);
         if(!$authResult->isValid()) {
-            $msg = "Authentication Failed";
-            $this->_log($msg);
-            $this->getResponse()->setBody($msg);
-            $this->_helper->flashMessenger($msg, 'error');
+            $this->view->assign("authResult", "Authentication Failed");
+            $this->view->assign('authMessages', array("There was a problem with the Harvard Key login. Please try logging in again."));
             return;
         }
 
         $this->_log("Authentication Successful. Logged in as {$authResult->getIdentity()}");
-
         $this->_helper->redirector->gotoUrl('/');
     }
 
@@ -82,10 +75,21 @@ class HarvardKey_AuthController extends Omeka_Controller_AbstractActionControlle
         } else {
             setcookie($redirectcookie, 1 + $redirectvalue);
         }
-        $service_url = $this->_settings->get("service_url").'?return_to='.rawurlencode(WEB_DIR . $this->view->url());
+        $service_url = $this->_getHarvardKeyServiceUrl();
         $this->_log("Redirecting to: $service_url");
         header("Location: $service_url");
         return true;
+    }
+
+    protected function _getHarvardKeyServiceUrl()
+    {
+        $base_url = WEB_DIR;
+        $login_url = $this->view->url('/harvard-key/auth/login');
+        if(substr( $base_url, -strlen( "/admin")) == "/admin") {
+            $base_url = substr($base_url, 0, strlen($base_url) - strlen("/admin"));
+        }
+        $return_to = $base_url . $login_url;
+        return $this->_settings->get("service_url").'?return_to='.rawurlencode($return_to);
     }
 
     protected function _debug(string $msg)

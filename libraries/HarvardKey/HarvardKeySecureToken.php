@@ -70,7 +70,7 @@ class HarvardKeySecureToken
 
     protected function _parse()
     {
-        if(strlen($this->_token) < $this->_hmacSize) {
+        if(!$this->_token || strlen($this->_token) < $this->_hmacSize) {
             $this->_log("cannot parse token: missing hmac", Zend_Log::WARN);
             return $this;
         }
