@@ -54,6 +54,14 @@ class HarvardKeySecureToken
     protected $_hmacAlgo = "sha256";
     protected $_hmacSize = 64;    // size of sha256 hash (256 bits expressed in hex)
 
+    /**
+     * HarvardKeySecureToken constructor.
+     *
+     * @param string $token Contains the HMAC and JSON-encoded credentials
+     * @param string $secret Secret key for the HMAC
+     * @param int $expires Expiration of token in seconds
+     * @throws Exception
+     */
     public function __construct(string $token, string $secret, int $expires)
     {
         $this->_token = $token;
@@ -71,6 +79,11 @@ class HarvardKeySecureToken
         $this->_parse();
     }
 
+    /**
+     * Attempts to parse the token.
+     *
+     * @return $this
+     */
     protected function _parse()
     {
         if(!$this->_token || strlen($this->_token) < $this->_hmacSize) {
@@ -101,6 +114,11 @@ class HarvardKeySecureToken
         return $this;
     }
 
+    /**
+     * Checks if the token is authentic and hasn't been tampered with.
+     *
+     * @return bool
+     */
     public function isAuthentic()
     {
         if(!isset($this->_hmac)) {
@@ -110,6 +128,11 @@ class HarvardKeySecureToken
         return ($computed_hmac === $this->_hmac);
     }
 
+    /**
+     * Checks if the token should be considered expired based on the time it was issued.
+     *
+     * @return bool
+     */
     public function isExpired()
     {
         if(!isset($this->_data['issued'])) {
@@ -121,6 +144,11 @@ class HarvardKeySecureToken
         return ($elapsed > $this->_expires);
     }
 
+    /**
+     * Checks if the token contains the minimum data attributes to be considered valid.
+     *
+     * @return bool
+     */
     public function hasRequiredFields()
     {
         if(!isset($this->_data)) {
@@ -133,11 +161,21 @@ class HarvardKeySecureToken
         return $has_required;
     }
 
+    /**
+     * Checks the validity of the token.
+     *
+     * @return bool true if the token is authentic, contains the required data, and is not expired, otherwise false.
+     */
     public function isValid()
     {
         return $this->isAuthentic() && $this->hasRequiredFields() && !$this->isExpired();
     }
 
+    /**
+     * Returns validation error messages.
+     *
+     * @return array
+     */
     public function validationErrors()
     {
         $errors = array();
@@ -153,32 +191,74 @@ class HarvardKeySecureToken
         return $errors;
     }
 
+    /**
+     * Returns the harvard key ID.
+     *
+     * @return string
+     */
     public function getId()
     {
         return $this->_data['id'];
     }
 
+    /**
+     * Returns the time the harvard key credentials were issued (unix timestamp).
+     *
+     * @return integer
+     */
+    public function getIssued()
+    {
+        return $this->_data['issued'];
+    }
+
+    /**
+     * Returns the role.
+     *
+     * @return string|null
+     */
     public function getRole()
     {
         return $this->_data['role'];
     }
 
+    /**
+     * Returns the user display name.
+     *
+     * @return string|null
+     */
     public function getName()
     {
         return $this->_data['name'];
     }
 
+    /**
+     * Returns the user email.
+     *
+     * @return string|null
+     */
     public function getEmail()
     {
         return $this->_data['email'];
     }
 
+    /**
+     * Logs a debug message.
+     *
+     * @param string $msg
+     * @return $this
+     */
     protected function _debug(string $msg)
     {
         debug(get_class($this) . ": $msg");
         return $this;
     }
 
+    /**
+     * Logs an info message.
+     *
+     * @param string $msg
+     * @return $this
+     */
     protected function _log(string $msg)
     {
         _log(get_class($this) . ": $msg");
