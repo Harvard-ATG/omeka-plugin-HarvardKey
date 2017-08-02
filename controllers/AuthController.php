@@ -8,11 +8,11 @@ require_once(HARVARDKEY_PLUGIN_DIR.'/libraries/HarvardKey/HarvardKeySecureToken.
 
 class HarvardKey_AuthController extends Omeka_Controller_AbstractActionController
 {
-    protected $_settings = null;
+    protected $_config = null;
 
     public function init() {
         $this->_auth = $this->getInvokeArg('bootstrap')->getResource('Auth');
-        $this->_settings = new Zend_Config_Ini(HARVARDKEY_PLUGIN_DIR . DIRECTORY_SEPARATOR . 'plugin.ini', 'auth');
+        $this->_config = new Zend_Config_Ini(HARVARDKEY_PLUGIN_DIR . DIRECTORY_SEPARATOR . 'auth.ini', 'auth');
     }
 
     protected function _handlePublicAction()
@@ -33,20 +33,20 @@ class HarvardKey_AuthController extends Omeka_Controller_AbstractActionControlle
     public function chooseAction() {
         $this->_handlePublicAction();
         $this->view->assign('omekaLoginUrl', $this->view->url('/harvard-key/users/login'));
-        $this->view->assign('harvardKeyLoginUrl', $this->_getHarvardKeyServiceUrl());
+        $this->view->assign('harvardKeyLoginUrl', $this->_getHarvardKeyAuthServiceUrl());
     }
 
     public function loginAction() {
         $this->_handlePublicAction();
         $this->view->assign('chooseUrl', $this->view->url('/harvard-key/auth/choose'));
 
-        $cookie = $_COOKIE[$this->_settings->get("cookie_name")];
-        $secret_key = $this->_settings->get("secret_key");
-        $expires = intval($this->_settings->get("expires", 600));
+        $cookie = $_COOKIE[$this->_config->get("cookie_name")];
+        $secret_key = $this->_config->get("secret_key");
+        $expires = intval($this->_config->get("expires", 600));
 
         if(!$cookie) {
             $this->view->assign("authResult", "Authentication Failed");
-            $this->view->assign('authMessages', array("Please ensure that you have cookies enabled in your browser and then try logging in again."));
+            $this->view->assign('authMessages', array("Cookies must be enabled to authenticate. Please ensure that you have cookies enabled in your browser and then try logging in again. If the problem persists, please contact support."));
             return;
         }
 
@@ -55,11 +55,14 @@ class HarvardKey_AuthController extends Omeka_Controller_AbstractActionControlle
         $authResult = $this->_auth->authenticate($authAdapter);
         if(!$authResult->isValid()) {
             $this->view->assign("authResult", "Authentication Failed");
-            $this->view->assign('authMessages', array("There was a problem with the Harvard Key login. Please try logging in again."));
+            $this->view->assign('authMessages', array("There was a problem logging in with your Harvard Key credentials. Please try logging in again. If the problem persists, please contact support."));
             return;
         }
 
-        $this->_log("Authentication Successful. Logged in as {$authResult->getIdentity()}");
+        $this->_log("auth success: logged in as {$authResult->getIdentity()}");
+        $this->view->assign("authResult", "Authentication Successful");
+        $this->view->assign('authMessages', array("Harvard Key credentials accepted and you have been logged in as user {$authResult->getIdentity()}. You will be redirected."));
+        //queue_js_string("setTimeout(function() { window.location='".$this->view->url('/')."'; }, 2000);");
         $this->_helper->redirector->gotoUrl('/');
     }
 
@@ -75,13 +78,13 @@ class HarvardKey_AuthController extends Omeka_Controller_AbstractActionControlle
         } else {
             setcookie($redirectcookie, 1 + $redirectvalue);
         }
-        $service_url = $this->_getHarvardKeyServiceUrl();
+        $service_url = $this->_getHarvardKeyAuthServiceUrl();
         $this->_log("Redirecting to: $service_url");
         header("Location: $service_url");
         return true;
     }
 
-    protected function _getHarvardKeyServiceUrl()
+    protected function _getHarvardKeyAuthServiceUrl()
     {
         $base_url = WEB_DIR;
         $login_url = $this->view->url('/harvard-key/auth/login');
@@ -89,7 +92,7 @@ class HarvardKey_AuthController extends Omeka_Controller_AbstractActionControlle
             $base_url = substr($base_url, 0, strlen($base_url) - strlen("/admin"));
         }
         $return_to = $base_url . $login_url;
-        return $this->_settings->get("service_url").'?return_to='.rawurlencode($return_to);
+        return $this->_config->get("url").'?return_to='.rawurlencode($return_to);
     }
 
     protected function _debug(string $msg)

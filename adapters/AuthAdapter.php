@@ -31,20 +31,20 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
     {
         $this->_log("authenticate()");
         if(!$this->_token->isValid()) {
-            $this->_log("harvard key token is invalid (AUTH FAILURE)");
-            return new Zend_Auth_Result(Zend_Auth_Result::FAILURE_CREDENTIAL_INVALID, null);
+            $this->_log("auth failure: harvard key token is invalid");
+            return new Zend_Auth_Result(Zend_Auth_Result::FAILURE_CREDENTIAL_INVALID, null, $this->_token->validationErrors());
         }
 
         $harvard_key_user = $this->_createOrUpdateUser();
         if(!$harvard_key_user) {
-            $this->_log("harvard key user not found (AUTH FAILURE)");
-            return new Zend_Auth_Result(Zend_Auth_result::FAILURE, null);
+            $this->_log("auth failure: error creating or updating harvard key user");
+            return new Zend_Auth_Result(Zend_Auth_result::FAILURE, null, array("Error updating harvard key user information"));
         }
 
         $omeka_user = $this->_findOmekaUserById($harvard_key_user->omeka_user_id);
         if(!$omeka_user->active) {
-            $this->_log("omeka user {$omeka_user->id} is inactive (AUTH FAILURE)");
-            return new Zend_Auth_Result(Zend_Auth_result::FAILURE, $harvard_key_user->omeka_user_id);
+            $this->_log("auth failure: omeka user {$omeka_user->id} is inactive");
+            return new Zend_Auth_Result(Zend_Auth_result::FAILURE, $harvard_key_user->omeka_user_id, array("User account is inactive"));
         }
 
         return new Zend_Auth_Result(Zend_Auth_Result::SUCCESS, $harvard_key_user->omeka_user_id);

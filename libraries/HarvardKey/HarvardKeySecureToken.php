@@ -65,6 +65,7 @@ class HarvardKeySecureToken
             throw new Exception("Expiration must be a non-negative integer");
         }
 
+        $this->_log("construct: token={$this->_token} expires={$this->_expires}");
         $this->_parse();
     }
 
@@ -140,9 +141,11 @@ class HarvardKeySecureToken
         $errors = array();
         if(!$this->isAuthentic()) {
             $errors[] = "Token could not be authenticated";
-        } else if(!$this->hasRequiredFields()) {
+        }
+        if(!$this->hasRequiredFields()) {
             $errors[] = "Token missing required fields";
-        } else if($this->isExpired()) {
+        }
+        if($this->isExpired()) {
             $errors[] = "Token is expired";
         }
         return $errors;
