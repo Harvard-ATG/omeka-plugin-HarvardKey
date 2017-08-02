@@ -30,6 +30,8 @@
  *   limits all cookies on a single domain to 4093 bytes.
  * - Tokens must be expired after a short interval so that they cannot be reused by a
  *   third parties indefinitely if compromised.
+ *
+ * @package HarvardKey
  */
 
 class HarvardKeySecureToken

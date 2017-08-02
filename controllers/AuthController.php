@@ -1,4 +1,13 @@
 <?php
+/**
+ * Authentication controller.
+ *
+ * Provides actions that allows the user to choose whether to authenticate with Harvard Key, or the default
+ * authentication (username/password).
+ *
+ * @package HarvardKey
+ */
+
 if (!defined('HARVARDKEY_PLUGIN_DIR')) {
     define('HARVARDKEY_PLUGIN_DIR', dirname(dirname(__FILE__)));
 }
@@ -8,34 +17,33 @@ require_once(HARVARDKEY_PLUGIN_DIR.'/libraries/HarvardKey/HarvardKeySecureToken.
 
 class HarvardKey_AuthController extends Omeka_Controller_AbstractActionController
 {
+    /**
+     * @var Zend_Config_Ini|null Holds auth config
+     */
     protected $_config = null;
 
+    /**
+     * Initializes the controller with necessary resources.
+     */
     public function init() {
         $this->_auth = $this->getInvokeArg('bootstrap')->getResource('Auth');
         $this->_config = new Zend_Config_Ini(HARVARDKEY_PLUGIN_DIR . DIRECTORY_SEPARATOR . 'auth.ini', 'auth');
     }
 
-    protected function _handlePublicAction()
-    {
-        #$this->_debug(var_export($this->getCurrentUser(), 1));
-        if (is_admin_theme()) {
-            $header = 'login-header';
-            $footer = 'login-footer';
-        } else {
-            $header = 'header';
-            $footer = 'footer';
-        }
-
-        $this->view->header = $header;
-        $this->view->footer = $footer;
-    }
-
+    /**
+     * Allow the user to choose which authentication method they would like to use.
+     */
     public function chooseAction() {
         $this->_handlePublicAction();
         $this->view->assign('omekaLoginUrl', $this->view->url('/harvard-key/users/login'));
         $this->view->assign('harvardKeyLoginUrl', $this->_getHarvardKeyAuthServiceUrl());
     }
 
+    /**
+     * Handle a login action using Harvard Key credentials.
+     *
+     * This action expects the Harvard Key credentials to be present in a cookie (signed to prevent tampering).
+     */
     public function loginAction() {
         $this->_handlePublicAction();
         $this->view->assign('chooseUrl', $this->view->url('/harvard-key/auth/choose'));
@@ -66,7 +74,30 @@ class HarvardKey_AuthController extends Omeka_Controller_AbstractActionControlle
         $this->_helper->redirector->gotoUrl('/');
     }
 
+    /**
+     * Handle public actions by setting the appropriate view variables for header/footer, etc.
+     */
+    protected function _handlePublicAction()
+    {
+        #$this->_debug(var_export($this->getCurrentUser(), 1));
+        if (is_admin_theme()) {
+            $header = 'login-header';
+            $footer = 'login-footer';
+        } else {
+            $header = 'header';
+            $footer = 'footer';
+        }
 
+        $this->view->header = $header;
+        $this->view->footer = $footer;
+    }
+
+    /**
+     * Helper method that can redirect to the harvard key auth service that sets the cookie
+     * required for the loginAction. Includes extra logic to try and prevent infinite loop of redirects.
+     *
+     * @return bool True if redirect header is sent, False otherwise.
+     */
     protected function _redirectToHarvardKeyService()
     {
         $redirectcookie = "harvardkeyredirects";
@@ -84,6 +115,12 @@ class HarvardKey_AuthController extends Omeka_Controller_AbstractActionControlle
         return true;
     }
 
+    /**
+     * Helper method to construct the URL to the auth service that handles authentication with the Harvard Key system
+     * and sets the cookie containing credentials.
+     *
+     * @return string URL
+     */
     protected function _getHarvardKeyAuthServiceUrl()
     {
         $base_url = WEB_DIR;
@@ -95,12 +132,24 @@ class HarvardKey_AuthController extends Omeka_Controller_AbstractActionControlle
         return $this->_config->get("url").'?return_to='.rawurlencode($return_to);
     }
 
+    /**
+     * Logs a debug message.
+     *
+     * @param string $msg
+     * @return $this
+     */
     protected function _debug(string $msg)
     {
         debug(get_class($this) . ": $msg");
         return $this;
     }
 
+    /**
+     * Logs an info message.
+     *
+     * @param string $msg
+     * @return $this
+     */
     protected function _log(string $msg)
     {
         _log(get_class($this) . ": $msg");

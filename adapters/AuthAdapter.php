@@ -1,10 +1,10 @@
 <?php
 
 /**
-* Authenticate against a securely signed token.
-*
-* @package Omeka\Auth
-*/
+ * Authenticate against a securely signed token.
+ *
+ * @package HarvardKey
+ */
 if (!defined('HARVARDKEY_PLUGIN_DIR')) {
     define('HARVARDKEY_PLUGIN_DIR', dirname(dirname(__FILE__)));
 }
@@ -13,9 +13,22 @@ require_once(HARVARDKEY_PLUGIN_DIR.'/libraries/HarvardKey/HarvardKeySecureToken.
 
 class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
 {
+    /**
+     * @var string The default omeka role assigned to new users
+     */
     protected $_defaultOmekaRole = 'harvard_key_viewer';
+
+    /**
+     * @var HarvardKeySecureToken|null The token object containing the user's identity and related attributes.
+     */
     protected $_token = null;
 
+    /**
+     * HarvardKey_Auth_Adapter constructor.
+     *
+     * @param Omeka_Db $db
+     * @param HarvardKeySecureToken $token
+     */
     public function __construct(Omeka_Db $db, HarvardKeySecureToken $token)
     {
         $this->_db = $db;
@@ -23,10 +36,13 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
     }
 
     /**
-    * Authenticate against secure token.
-    *
-    * @return Zend_Auth_Result|null
-    */
+     * Performs an authentication attempt.
+     *
+     * Attempts to retrieve the user's Harvard Key identity and link it to an Omeka User identity. A successful
+     * authentication attempt will return the Omeka User identity.
+     *
+     * @return Zend_Auth_Result
+     */
     public function authenticate()
     {
         $this->_log("authenticate()");
@@ -50,6 +66,11 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
         return new Zend_Auth_Result(Zend_Auth_Result::SUCCESS, $harvard_key_user->omeka_user_id);
     }
 
+    /**
+     * Creates or updates a harvard key user record.
+     *
+     * @return HarvardKeyUser
+     */
     protected function _createOrUpdateUser()
     {
         $this->_log("_createOrUpdateUser()");
@@ -83,6 +104,12 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
         return $harvard_key_user;
     }
 
+    /**
+     * Creates an Omeka User record.
+     *
+     * @param HarvardKeyUser $harvard_key_user
+     * @return int ID of the User record
+     */
     protected function _createOmekaUser($harvard_key_user)
     {
         $this->_log("_createOmekaUser()");
@@ -116,6 +143,12 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
         return $omeka_user_id;
     }
 
+    /**
+     * Returns the role name if it's valid, otherwise returns the default omeka role.
+     *
+     * @param string $role
+     * @return string role name
+     */
     protected function _getValidRole($role)
     {
         $valid_role = $role && in_array($role, array('researcher', 'contributor', 'admin', 'super'));
@@ -125,30 +158,60 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
         return $role;
     }
 
+    /**
+     * Finds the harvard key user record by the harvard key ID.
+     *
+     * @param int $harvard_key_id
+     * @return Omeka_Record_AbstractRecord
+     */
     protected function _findHarvardKeyUser($harvard_key_id)
     {
         $table = $this->_db->getTable('HarvardKeyUser');
         return $table->findBySql('harvard_key_id = ?', array($harvard_key_id), true);
     }
 
+    /**
+     * Finds the Omeka user record by the omeka user ID.
+     *
+     * @param int $omeka_user_id
+     * @return Omeka_Record_AbstractRecord
+     */
     protected function _findOmekaUserById($omeka_user_id)
     {
         $table = $this->_db->getTable('User');
         return $table->findBySql('id = ?', array($omeka_user_id), true);
     }
 
+    /**
+     * Finds the Omeka user record by the omeka username.
+     *
+     * @param string $omeka_username
+     * @return Omeka_Record_AbstractRecord
+     */
     protected function _findOmekaUserByUsername($omeka_username)
     {
         $table = $this->_db->getTable('User');
         return $table->findBySql('username = ?', array($omeka_username), true);
     }
 
+    /**
+     * Logs a debug message.
+     *
+     * @param string $msg
+     * @return $this
+     */
     protected function _debug(string $msg)
     {
         debug(get_class($this) . ": $msg");
         return $this;
     }
 
+    /**
+     * Logs an info message.
+     *
+     * @param string $msg
+     * @return $this
+     */
     protected function _log(string $msg)
     {
         _log(get_class($this) . ": $msg");
