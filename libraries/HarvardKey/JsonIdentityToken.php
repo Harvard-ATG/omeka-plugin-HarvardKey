@@ -96,7 +96,7 @@ class JsonIdentityToken
     protected function _parse()
     {
         if(!$this->_token || strlen($this->_token) < self::HMAC_SIZE) {
-            $this->_log("parse: missing hmac!", Zend_Log::WARN);
+            $this->_log("parse: missing hmac!");
             return $this;
         }
 
