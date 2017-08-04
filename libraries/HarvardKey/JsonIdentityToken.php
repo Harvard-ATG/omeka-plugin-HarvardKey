@@ -80,8 +80,12 @@ class JsonIdentityToken
      */
     public static function create(array $data, string $secret, int $expires) {
         $msg = json_encode(array_merge($data, array("issued" => time())));
-        $token = hash_hmac(self::HMAC_ALGO, $msg, $secret) . $msg;
-        return new self($token, $secret, $expires);
+        $signed_msg = hash_hmac(self::HMAC_ALGO, $msg, $secret) . $msg;
+        $token = new self($signed_msg, $secret, $expires);
+        if(!$token->isValid()) {
+            throw new Exception('Error creating token!');
+        }
+        return $token;
     }
 
     /**
