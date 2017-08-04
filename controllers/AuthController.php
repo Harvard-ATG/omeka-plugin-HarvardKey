@@ -13,7 +13,7 @@ if (!defined('HARVARDKEY_PLUGIN_DIR')) {
 }
 
 require_once HARVARDKEY_PLUGIN_DIR.'/adapters/AuthAdapter.php';
-require_once(HARVARDKEY_PLUGIN_DIR.'/libraries/HarvardKey/HarvardKeySecureToken.php');
+require_once(HARVARDKEY_PLUGIN_DIR.'/libraries/HarvardKey/JsonIdentityToken.php');
 
 class HarvardKey_AuthController extends Omeka_Controller_AbstractActionController
 {
@@ -58,7 +58,7 @@ class HarvardKey_AuthController extends Omeka_Controller_AbstractActionControlle
             return;
         }
 
-        $token = new HarvardKeySecureToken($cookie, $secret_key, $expires);
+        $token = new JsonIdentityToken($cookie, $secret_key, $expires);
         $authAdapter = new HarvardKey_Auth_Adapter($this->_helper->db->getDb(), $token);
         $authResult = $this->_auth->authenticate($authAdapter);
         if(!$authResult->isValid()) {

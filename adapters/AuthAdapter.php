@@ -9,7 +9,7 @@ if (!defined('HARVARDKEY_PLUGIN_DIR')) {
     define('HARVARDKEY_PLUGIN_DIR', dirname(dirname(__FILE__)));
 }
 
-require_once(HARVARDKEY_PLUGIN_DIR.'/libraries/HarvardKey/HarvardKeySecureToken.php');
+require_once(HARVARDKEY_PLUGIN_DIR.'/libraries/HarvardKey/JsonIdentityToken.php');
 
 class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
 {
@@ -19,7 +19,7 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
     protected $_defaultOmekaRole = 'harvard_key_viewer';
 
     /**
-     * @var HarvardKeySecureToken|null The token object containing the user's identity and related attributes.
+     * @var JsonIdentityToken|null The token object containing the user's identity and related attributes.
      */
     protected $_token = null;
 
@@ -27,9 +27,9 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
      * HarvardKey_Auth_Adapter constructor.
      *
      * @param Omeka_Db $db
-     * @param HarvardKeySecureToken $token
+     * @param JsonIdentityToken $token
      */
-    public function __construct(Omeka_Db $db, HarvardKeySecureToken $token)
+    public function __construct(Omeka_Db $db, JsonIdentityToken $token)
     {
         $this->_db = $db;
         $this->_token = $token;

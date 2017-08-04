@@ -1,40 +1,30 @@
 <?php
 
 /**
- * HarvardKeySecureToken is a class for verifying and parsing a token that has been issued
- * on behalf of a user that has logged into the Harvard Key system.
+ * JsonIdentityToken is a class for creating small tokens with identity information.
  *
- * Tokens are composed of two parts: an HMAC and a message string. The HMAC
- * is a sha256 hash concatenated with a message string. The message string is
- * JSON-encoded containing the following key/value pairs:
+ * A token is a string with two parts: an HMAC and a message payload. The HMAC
+ * is a sha256 hash concatenated with a JSON-encoded payload, which may contain
+ * the following key/value pairs: 
  *
- *     (required) "id"     => the harvard key identifier (such as the EPPN)
+ *     (required) "id"     => the user identity
  *     (required) "issued" => the time at which the token was issued
  *     (optional) "name"   => the display name of the user
  *     (optional) "email"  => the email of the user
  *     (optional) "role"   => the role of the user
  *
- * Assumptions:
- *
- * The assumption is that the token is issued from a trusted site via SSL using a shared
- * secret key. The token may come from a secure cookie on the same domain, although this class
- * is more or less agnostic about where the token comes from.
- *
- * It's assumed that all attributes in the token are true for all sites that may consume the token,
- * so for example, if we wanted to grant "super" user access to certain users, we could set the
- * role to "super" and they would have "super" access to any/all sites that the token was submitted to.
- *
  * Notes:
  *
  * - Token size must not exceed 4093 bytes when transmitted via cookies, because the browser
  *   limits all cookies on a single domain to 4093 bytes.
- * - Tokens must be expired after a short interval so that they cannot be reused by a
- *   third parties indefinitely if compromised.
+ * - Tokens should be expired after a short interval so that they cannot be reused by a
+ *   third parties indefinitely if compromised. When using cookies, do not rely on 
+ *   cookie expiration alone, which is not sufficient.
  *
  * @package HarvardKey
  */
 
-class HarvardKeySecureToken
+class JsonIdentityToken
 {
     // Constructor parameters
     protected $_token = null;     // raw token string: HMAC concatenated with the JSON message
@@ -51,11 +41,11 @@ class HarvardKeySecureToken
     protected $_fieldsOptional = array("name", "email", "role");
 
     // HMAC settings
-    protected $_hmacAlgo = "sha256";
-    protected $_hmacSize = 64;    // size of sha256 hash (256 bits expressed in hex)
+    const HMAC_ALGO = "sha256"; // algorithm to use for the hash-based message auth code
+    const HMAC_SIZE = 64;       // size of sha256 hash (256 bits expressed in hex)
 
     /**
-     * HarvardKeySecureToken constructor.
+     * JsonIdentityToken constructor.
      *
      * @param string $token Contains the HMAC and JSON-encoded credentials
      * @param string $secret Secret key for the HMAC
@@ -80,36 +70,55 @@ class HarvardKeySecureToken
     }
 
     /**
+     * Factory method to create an instance from data fields. 
+     *
+     * @param array $data Contains the data that should be encoded in the token
+     * @param string $secret Secret key for the HMAC
+     * @param int $expires Expiration of token in seconds
+     *
+     * @return JsonIdentityToken
+     */
+    public static function create(array $data, string $secret, int $expires) {
+        $msg = json_encode(array_merge($data, array("issued" => time())));
+        $token = hash_hmac(self::HMAC_ALGO, $msg, $secret) . $msg;
+        return new self($token, $secret, $expires);
+    }
+
+    /**
      * Attempts to parse the token.
      *
      * @return $this
      */
     protected function _parse()
     {
-        if(!$this->_token || strlen($this->_token) < $this->_hmacSize) {
-            $this->_log("cannot parse token: missing hmac", Zend_Log::WARN);
+        if(!$this->_token || strlen($this->_token) < self::HMAC_SIZE) {
+            $this->_log("parse: missing hmac!", Zend_Log::WARN);
             return $this;
         }
 
-        $this->_hmac = substr($this->_token, 0, $this->_hmacSize);
-        $this->_msg = substr($this->_token, $this->_hmacSize);
-        $this->_log("hmac = {$this->_hmac} msg = {$this->_msg}");
+        $this->_hmac = substr($this->_token, 0, self::HMAC_SIZE);
+        $this->_msg = substr($this->_token, self::HMAC_SIZE);
+        $this->_log("parse: hmac = {$this->_hmac} msg = {$this->_msg}");
 
         $token_decoded = json_decode($this->_msg, true);
         if (is_null($token_decoded)) {
+            $this->_log("parse: decoding returned null");
             $token_decoded = array();
         }
 
         $this->_data = array();
         $fields = array_merge($this->_fieldsOptional, $this->_fieldsRequired);
         foreach($fields as $field) {
+            $this->_data[$field] = null;
             if(array_key_exists($field, $token_decoded)) {
-                $this->_data[$field] = $token_decoded[$field];
-            } else {
-                $this->_data[$field] = null;
+                if(is_scalar($token_decoded[$field])) {
+                    $this->_data[$field] = $token_decoded[$field];
+                } else {
+                    $this->_log("parse: field=$field is not a scalar value");
+                }
             }
         }
-        $this->_log("data = ".var_export($this->_data,1));
+        $this->_log("parse: data=".var_export($this->_data,1));
 
         return $this;
     }
@@ -124,7 +133,7 @@ class HarvardKeySecureToken
         if(!isset($this->_hmac)) {
             return false;
         }
-        $computed_hmac = hash_hmac($this->_hmacAlgo, $this->_msg, $this->_secret);
+        $computed_hmac = hash_hmac(self::HMAC_ALGO, $this->_msg, $this->_secret);
         return ($computed_hmac === $this->_hmac);
     }
 
@@ -149,7 +158,7 @@ class HarvardKeySecureToken
      *
      * @return bool
      */
-    public function hasRequiredFields()
+    public function hasValidFields()
     {
         if(!isset($this->_data)) {
             return false;
@@ -168,7 +177,7 @@ class HarvardKeySecureToken
      */
     public function isValid()
     {
-        return $this->isAuthentic() && $this->hasRequiredFields() && !$this->isExpired();
+        return $this->isAuthentic() && $this->hasValidFields() && !$this->isExpired();
     }
 
     /**
@@ -182,7 +191,7 @@ class HarvardKeySecureToken
         if(!$this->isAuthentic()) {
             $errors[] = "Token could not be authenticated";
         }
-        if(!$this->hasRequiredFields()) {
+        if(!$this->hasValidFields()) {
             $errors[] = "Token missing required fields";
         }
         if($this->isExpired()) {
@@ -192,7 +201,17 @@ class HarvardKeySecureToken
     }
 
     /**
-     * Returns the harvard key ID.
+     * Returns the token string.
+     *
+     * @return string
+     */
+    public function getToken()
+    {
+            return $this->_token;
+    }
+
+    /**
+     * Returns the user ID.
      *
      * @return string
      */
@@ -202,7 +221,7 @@ class HarvardKeySecureToken
     }
 
     /**
-     * Returns the time the harvard key credentials were issued (unix timestamp).
+     * Returns the time the credentials were issued (unix timestamp).
      *
      * @return integer
      */
@@ -249,7 +268,12 @@ class HarvardKeySecureToken
      */
     protected function _debug(string $msg)
     {
-        debug(get_class($this) . ": $msg");
+        $msg = get_class($this).': '.$msg;
+        if(function_exists("debug")) {
+            debug($msg);
+        } else {
+            error_log($msg);
+        }
         return $this;
     }
 
@@ -261,7 +285,12 @@ class HarvardKeySecureToken
      */
     protected function _log(string $msg)
     {
-        _log(get_class($this) . ": $msg");
+        $msg = get_class($this).': '.$msg;
+        if(function_exists("_log")) {
+            _log($msg);
+        } else {
+            error_log($msg);
+        }
         return $this;
     }
 
