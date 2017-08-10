@@ -3,6 +3,8 @@ if (!defined('HARVARDKEY_PLUGIN_DIR')) {
     define('HARVARDKEY_PLUGIN_DIR', dirname(__FILE__));
 }
 
+require_once(HARVARDKEY_PLUGIN_DIR.'/libraries/HarvardKey/Form/HarvardKeyFormConfig.php');
+
 class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
 {
     /**
@@ -14,7 +16,9 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
         'config',
         'config_form',
         'define_routes',
-        'define_acl'
+        'define_acl',
+        'users_form',
+        'before_save_user',
     );
 
     /**
@@ -29,6 +33,11 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
      */
     protected $_options = array(
     );
+
+    /**
+     * @var string Custom role for harvard key (viewer permissions).
+     */
+    protected $_harvardkey_viewer_role = "harvard_key_viewer";
 
     /**
      * Plugin constructor.
@@ -47,8 +56,9 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
      */
     public function hookInstall()
     {
-        $this->_installOptions();
         $this->_createTables();
+        set_option('harvardkey_contributor_code', $this->__randomPassword());
+        set_option('harvardkey_contributor_code_enabled', 0);
     }
 
     /**
@@ -58,8 +68,10 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
      */
     public function hookUninstall()
     {
-        $this->_uninstallOptions();
+
         $this->_dropTables();
+        delete_option('harvardkey_contributor_code');
+        delete_option('harvardkey_contributor_code_enabled');
     }
 
     /**
@@ -69,11 +81,15 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
      */
     public function hookConfig($args)
     {
-        foreach (array_keys($this->_options) as $option) {
-            if (isset($args['post'][$option])) {
-                set_option($option, $args['post'][$option]);
-            }
+        $csrfValidator = new Omeka_Form_SessionCsrf;
+        if (!$csrfValidator->isValid($args['post'])) {
+            throw Omeka_Validate_Exception(__("Invalid CSRF token."));
         }
+        $data = $args['post'];
+        $this->_log("hookConfig: ".var_export($data,1));
+
+        set_option('harvardkey_contributor_code', $data['harvardkey_contributor_code']);
+        set_option('harvardkey_contributor_code_enabled', $data['harvardkey_contributor_code_enabled']);
     }
 
     /**
@@ -83,7 +99,7 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
      */
     public function hookConfigForm()
     {
-        #include 'config_form.php';
+        require(dirname(__FILE__) . '/config_form.php');
     }
 
     /**
@@ -104,10 +120,47 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
 
         // Harvard key guest role inherits the same privileges as unauthenticated users (i.e. null role)
         // and will need to be promoted by an admin to do anything more in the system.
-        $role_name = "harvard_key_viewer";
-        $acl->addRole($role_name);
-        $acl->allow($role_name, 'Users', null, new Omeka_Acl_Assert_User);
-        $acl->allow($role_name, 'Users', array('login', 'logout')); // Not including: forgot-password, activate
+        $acl->addRole($this->_harvardkey_viewer_role);
+        $acl->allow($this->_harvardkey_viewer_role, 'Users', null, new Omeka_Acl_Assert_User);
+        $acl->allow($this->_harvardkey_viewer_role, 'Users', array('login', 'logout', 'forgot-password')); // not include: 'activate'
+    }
+
+    function hookUsersForm($args) {
+        $user = $args['user'];
+        $form = $args['form'];
+
+        if(!$user->id) {
+            return;
+        }
+
+        $code_enabled = get_option('harvardkey_contributor_code_enabled');
+        if(!$code_enabled) {
+            return;
+        }
+
+        if($user->role === $this->_harvardkey_viewer_role) {
+            $form->addElement('text', 'harvardkey_contributor_code_input', array(
+                'label' => __('Contributor Passcode'),
+                'description' => __('Enter passcode to become site contributor'),
+                'validators' => array(),
+                'value' => '',
+            ));
+        }
+    }
+
+    function hookBeforeSaveUser($args) {
+        $post_data = $args['post'];
+        $user = $args['record'];
+        $submitted_code = $post_data['harvardkey_contributor_code_input'];
+
+        $code_enabled = get_option('harvardkey_contributor_code_enabled');
+        if($code_enabled) {
+            $code = get_option('harvardkey_contributor_code');
+            if($submitted_code == $code) {
+                $user->role = 'contributor';
+                $this->_log("promoting {$user->id} to contributor because they submitted the correct passcode");
+            }
+        }
     }
 
     /**
@@ -158,5 +211,27 @@ __SQL;
         $db = $this->_db;
         $sql = "DROP TABLE IF EXISTS `$db->HarvardKeyUser`";
         $db->query($sql);
+    }
+
+    /**
+     * Logs an info message.
+     *
+     * @param string $msg
+     * @return $this
+     */
+    protected function _log(string $msg)
+    {
+        _log(get_class($this) . ": $msg");
+        return $this;
+    }
+
+    /**
+     * Generates a random password.
+     *
+     * @param integer $length
+     * @return string
+     */
+    private function __randomPassword(int $length) {
+        return substr(str_shuffle(strtolower(sha1(rand() . time() . 'harvardkey'))),0, $length);
     }
 }
