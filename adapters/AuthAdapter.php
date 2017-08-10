@@ -54,11 +54,14 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
         $harvard_key_user = $this->_createOrUpdateUser();
         if(!$harvard_key_user) {
             $this->_log("auth failure: error creating or updating harvard key user");
-            return new Zend_Auth_Result(Zend_Auth_result::FAILURE, null, array("Error updating harvard key user information"));
+            return new Zend_Auth_Result(Zend_Auth_result::FAILURE, null, array("Error updating harvard key credentials"));
         }
 
         $omeka_user = $this->_findOmekaUserById($harvard_key_user->omeka_user_id);
-        if(!$omeka_user->active) {
+        if(!$omeka_user) {
+            $this->_log("auth failure: error fetching omeka user id: {$harvard_key_user->omeka_user_id} for harvard key row id: {$harvard_key_user->id}");
+            return new Zend_Auth_Result(Zend_Auth_result::FAILURE, null, array("Error looking up user associated with harvard key credentials"));
+        } else if(!$omeka_user->active) {
             $this->_log("auth failure: omeka user {$omeka_user->id} is inactive");
             return new Zend_Auth_Result(Zend_Auth_result::FAILURE, $harvard_key_user->omeka_user_id, array("User account is inactive"));
         }
