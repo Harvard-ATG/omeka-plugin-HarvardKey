@@ -57,8 +57,9 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
     public function hookInstall()
     {
         $this->_createTables();
-        set_option('harvardkey_contributor_code', $this->__randomPassword());
-        set_option('harvardkey_contributor_code_enabled', 0);
+        set_option('harvardkey_passcode_value', $this->__randomPassword());
+        set_option('harvardkey_passcode_role', 'contributor');
+        set_option('harvardkey_passcode_enabled', 0);
     }
 
     /**
@@ -70,8 +71,9 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
     {
 
         $this->_dropTables();
-        delete_option('harvardkey_contributor_code');
-        delete_option('harvardkey_contributor_code_enabled');
+        delete_option('harvardkey_passcode_value');
+        delete_option('harvardkey_passcode_role');
+        delete_option('harvardkey_passcode_enabled');
     }
 
     /**
@@ -87,9 +89,9 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
         }
         $data = $args['post'];
         $this->_log("hookConfig: ".var_export($data,1));
-
-        set_option('harvardkey_contributor_code', $data['harvardkey_contributor_code']);
-        set_option('harvardkey_contributor_code_enabled', $data['harvardkey_contributor_code_enabled']);
+        set_option('harvardkey_passcode_value', $data['harvardkey_passcode_value']);
+        set_option('harvardkey_passcode_role', $data['harvardkey_passcode_role']);
+        set_option('harvardkey_passcode_enabled', $data['harvardkey_passcode_enabled']);
     }
 
     /**
@@ -114,6 +116,11 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
         $router->addConfig(new Zend_Config_Ini(HARVARDKEY_PLUGIN_DIR .  DIRECTORY_SEPARATOR . 'routes.ini', 'routes'));
     }
 
+    /**
+     * Hook for defining or modifying ACLs.
+     *
+     * @param $args
+     */
     function hookDefineAcl($args)
     {
         $acl = $args['acl'];
@@ -125,6 +132,11 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
         $acl->allow($this->_harvardkey_viewer_role, 'Users', array('login', 'logout', 'forgot-password')); // not include: 'activate'
     }
 
+    /**
+     * Hook for modifying the user form.
+     *
+     * @param $args
+     */
     function hookUsersForm($args) {
         $user = $args['user'];
         $form = $args['form'];
@@ -133,34 +145,28 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
             return;
         }
 
-        $code_enabled = get_option('harvardkey_contributor_code_enabled');
+        $code_enabled = get_option('harvardkey_passcode_enabled');
         if(!$code_enabled) {
             return;
         }
 
         if($user->role === $this->_harvardkey_viewer_role) {
-            $form->addElement('text', 'harvardkey_contributor_code_input', array(
-                'label' => __('Contributor Passcode'),
-                'description' => __('Enter passcode to become site contributor'),
+            $form->addElement('text', 'harvardkey_passcode_submitted', array(
+                'label' => __('Role Passcode'),
+                'description' => __('Enter role passcode'),
                 'validators' => array(),
                 'value' => '',
             ));
         }
     }
 
+    /**
+     * Hook before saving a user record.
+     *
+     * @param $args
+     */
     function hookBeforeSaveUser($args) {
-        $post_data = $args['post'];
-        $user = $args['record'];
-        $submitted_code = $post_data['harvardkey_contributor_code_input'];
-
-        $code_enabled = get_option('harvardkey_contributor_code_enabled');
-        if($code_enabled) {
-            $code = get_option('harvardkey_contributor_code');
-            if($submitted_code == $code) {
-                $user->role = 'contributor';
-                $this->_log("promoting {$user->id} to contributor because they submitted the correct passcode");
-            }
-        }
+        $this->_checkPasscode($args['record'], $args['post']);
     }
 
     /**
@@ -189,6 +195,50 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
         return $whitelist;
     }
 
+    /**
+     * Checks a submitted passcode and updates their role if correct.
+     *
+     * @param $user Omeka User record.
+     * @param $postdata Submitted POST data.
+     * @return bool True if the passcode was accepted, false otherwise.
+     */
+    protected function _checkPasscode($user, $postdata) {
+        // ensure the passcode is enabled
+        $code_enabled = get_option('harvardkey_passcode_enabled');
+        if(!$code_enabled) {
+            return false;
+        }
+
+        // ensure that the submitted code is a non-empty string
+        $submitted_code = $postdata['harvardkey_passcode_submitted'];
+        if(!isset($submitted_code) || strlen(trim($submitted_code)) == 0) {
+            return false;
+        }
+
+        $code_role = get_option('harvardkey_passcode_role');
+        $code_value = get_option('harvardkey_passcode_value');
+
+        // ensure that the saved role option is a valid role
+        $valid_roles = get_user_roles();
+        if(!isset($valid_roles[$code_role])) {
+            $this->_log("invalid option role=$code_role ... aborting ", Zend_Log::WARN);
+            return false;
+        }
+
+        $this->_log("checking submitted passcode=$submitted_code...");
+        if($submitted_code == $code_value) {
+            $user->role = $code_role;
+            $this->_log("promoting user_id={$user->id} to role=$code_role because passcode is valid");
+        } else {
+            $this->_log("passcode is INVALID");
+        }
+
+        return true;
+    }
+
+    /**
+     * Creates database tables for the plugin.
+     */
     protected function _createTables() {
         $db = $this->_db;
         $sql = <<<__SQL
@@ -207,6 +257,9 @@ __SQL;
         $db->query($sql);
     }
 
+    /**
+     * Drops database tables created by the plugin.
+     */
     protected function _dropTables() {
         $db = $this->_db;
         $sql = "DROP TABLE IF EXISTS `$db->HarvardKeyUser`";
