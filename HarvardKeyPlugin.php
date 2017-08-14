@@ -152,8 +152,8 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
 
         if($user->role === $this->_harvardkey_viewer_role) {
             $form->addElement('text', 'harvardkey_passcode_submitted', array(
-                'label' => __('Role Passcode'),
-                'description' => __('Enter role passcode'),
+                'label' => __('Passcode?'),
+                'description' => __("Optional: enter passcode to update role"),
                 'validators' => array(),
                 'value' => '',
             ));
@@ -203,34 +203,34 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
      * @return bool True if the passcode was accepted, false otherwise.
      */
     protected function _checkPasscode($user, $postdata) {
-        // ensure the passcode is enabled
-        $code_enabled = get_option('harvardkey_passcode_enabled');
-        if(!$code_enabled) {
-            return false;
-        }
-
-        // ensure that the submitted code is a non-empty string
         $submitted_code = $postdata['harvardkey_passcode_submitted'];
         if(!isset($submitted_code) || strlen(trim($submitted_code)) == 0) {
             return false;
         }
-
-        $code_role = get_option('harvardkey_passcode_role');
-        $code_value = get_option('harvardkey_passcode_value');
-
-        // ensure that the saved role option is a valid role
-        $valid_roles = get_user_roles();
-        if(!isset($valid_roles[$code_role])) {
-            $this->_log("invalid option role=$code_role ... aborting ", Zend_Log::WARN);
+        if(!get_option('harvardkey_passcode_enabled')) {
             return false;
         }
 
-        $this->_log("checking submitted passcode=$submitted_code...");
-        if($submitted_code == $code_value) {
+        $code_value = get_option('harvardkey_passcode_value');
+        $code_role = get_option('harvardkey_passcode_role');
+
+        // ensure the role is valid
+        $valid_roles = get_user_roles();
+        if(!isset($valid_roles[$code_role])) {
+            $this->_log("invalid option role=$code_role ... aborting passcode check! ", Zend_Log::WARN);
+            return false;
+        }
+
+        $this->_log("passcode submitted by user_id={$user->id} passcode=$submitted_code");
+        $flashMessenger = Zend_Controller_Action_HelperBroker::getStaticHelper('FlashMessenger');
+        if($submitted_code === $code_value) {
             $user->role = $code_role;
-            $this->_log("promoting user_id={$user->id} to role=$code_role because passcode is valid");
+            $this->_log("passcode is VALID: promoting user_id={$user->id} to role=$code_role");
+            $flashMessenger->addMessage("Passcode accepted! The user {$user->username} has been granted role: {$user->role}", "success");
         } else {
             $this->_log("passcode is INVALID");
+            $flashMessenger->addMessage("Invalid passcode!", "error");
+            return false;
         }
 
         return true;

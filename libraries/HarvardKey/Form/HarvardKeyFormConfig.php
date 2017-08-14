@@ -22,14 +22,14 @@ class HarvardKey_Form_Config extends Omeka_Form {
 
         $this->addElement('text', 'harvardkey_passcode_value', array(
             'label' => __('Passcode'),
-            'description' => __('Define a passcode that users can enter to promote themselves to a new role after they have logged in. To assign roles manually, leave this option disabled.'),
+            'description' => __('Create a passcode that users may submit on their profile page to upgrade their role. To assign roles manually, leave this option disabled.'),
             'value' => get_option('harvardkey_passcode_value'),
             'validators' => array('NotEmpty', 'Alnum'),
         ));
 
         $this->addElement('select', 'harvardkey_passcode_role', array(
             'label' => __('Role'),
-            'description' => __("Select the role you would like to assign to users who enter the correct passcode."),
+            'description' => __("Select the role users will be assigned when they enter the correct passcode."),
             'multiOptions' => $user_roles,
             'value' => $role_value
         ));
