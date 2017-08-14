@@ -15,8 +15,7 @@ class HarvardKeyUser extends Omeka_Record_AbstractRecord implements Zend_Acl_Res
     public function saveIdentity($harvard_key_id)
     {
         $this->harvard_key_id = $harvard_key_id;
-        $this->save(true);
-        return $this;
+        return $this->save(true);
     }
 
     public function linkToUser($omeka_user_id)

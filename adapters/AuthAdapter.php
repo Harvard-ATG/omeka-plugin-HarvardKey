@@ -77,31 +77,61 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
     protected function _createOrUpdateUser()
     {
         $this->_log("_createOrUpdateUser()");
-        $harvard_key_id = $this->_token->getId();
 
-        // Create a new harvard key user entry if none exists
+        // Create a new harvard key entry if none exists
+        $harvard_key_id = $this->_token->getId();
         $harvard_key_user = $this->_findHarvardKeyUser($harvard_key_id);
         if($harvard_key_user) {
             $this->_log("found harvard key entry with row id = {$harvard_key_user->id}");
         } else {
-            $this->_log("harvard key entry not found... creating entry for harvard key id = $harvard_key_id");
+            $this->_log("creating entry for harvard key id = $harvard_key_id");
             $harvard_key_user = new HarvardKeyUser;
-            $harvard_key_user->saveIdentity($harvard_key_id);
+            $insert_row_id = $harvard_key_user->saveIdentity($harvard_key_id);
+            if($insert_row_id) {
+                $this->_log("successfully created harvard key entry with inserted id = $insert_row_id");
+            } else {
+                $this->_log("error creating harvard key user", Zend_Log::WARN);
+                return false;
+            }
         }
 
-        // Link the harvard key user to an omeka user, since the omeka user is required to login.
-        // If the omeka user is deleted for some reason, link to a new one. To disable a user, set active to false.
+        // Check if a valid omeka user is linked to the harvard key entry
+        $omeka_user_id = null;
         if($harvard_key_user->isLinkedToUser()) {
-            $omeka_user_id = $harvard_key_user->getLinkedUserId();
-            $omeka_user = $this->_findOmekaUserById($omeka_user_id);
+            $this->_log("checking link {$harvard_key_user->harvard_key_id} => {$harvard_key_user->omeka_user_id}");
+            $omeka_user = $this->_findOmekaUserById($harvard_key_user->omeka_user_id);
             if($omeka_user) {
-                $this->_log("omeka user $omeka_user_id EXISTS");
+                $this->_log("omeka user {$harvard_key_user->omeka_user_id} EXISTS");
+                $omeka_user_id = $omeka_user->id;
             } else {
-                $this->_log("omeka user $omeka_user_id NOT FOUND", Zend_Log::WARN);
-                $this->_createOmekaUser($harvard_key_user);
+                $this->_log("omeka user {$harvard_key_user->omeka_user_id} NOT FOUND", Zend_Log::WARN);
             }
-        } else {
-            $this->_createOmekaUser($harvard_key_user);
+        }
+
+        // Attempt to link to a user having the same email address
+        if(!$omeka_user_id && $this->_token->hasData('email')) {
+            $email = $this->_token->getEmail();
+            $this->_log("harvard key user $harvard_key_id has email = $email");
+            $omeka_user = $this->_findOmekaUserByEmail($email);
+            if($omeka_user) {
+                $this->_log("omeka user with email = $email EXISTS... linking {$omeka_user->id}");
+                $harvard_key_user->linkToUser($omeka_user->id);
+                $omeka_user->active = 1;
+                $omeka_user->save();
+                $omeka_user_id = $omeka_user->id;
+            } else {
+                $this->_log("omeka user with email = $email NOT FOUND", Zend_Log::WARN);
+            }
+        }
+
+        // Attempt to create and link a new omeka user if none has already been linked
+        if(!$omeka_user_id) {
+            $this->_log("creating new omeka user record");
+            $insert_row_id = $this->_createOmekaUser($harvard_key_user);
+            if(!$insert_row_id) {
+                $this->_log("error creating omeka user", Zend_Log::WARN);
+                return false;
+            }
         }
 
         return $harvard_key_user;
@@ -140,6 +170,11 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
 
         // Insert into the database and then link the omeka user to the harvard key identity
         $omeka_user_id = $this->_db->insert('User', $omeka_user_values);
+        if(!$omeka_user_id) {
+            $this->_log("error creating omeka user", Zend_Log::WARN);
+            return false;
+        }
+
         $harvard_key_user->linkToUser($omeka_user_id);
         $this->_log("successfully linked harvard_key_id={$harvard_key_user->harvard_key_id} with omeka user id=$omeka_user_id");
 
@@ -195,6 +230,18 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
     {
         $table = $this->_db->getTable('User');
         return $table->findBySql('username = ?', array($omeka_username), true);
+    }
+
+    /**
+     * Finds the Omeka user record by the omeka email.
+     *
+     * @param string $omeka_email
+     * @return Omeka_Record_AbstractRecord
+     */
+    protected function _findOmekaUserByEmail($omeka_email)
+    {
+        $table = $this->_db->getTable('User');
+        return $table->findBySql('email = ?', array($omeka_email), true);
     }
 
     /**

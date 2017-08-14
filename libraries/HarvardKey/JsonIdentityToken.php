@@ -265,6 +265,16 @@ class JsonIdentityToken
     }
 
     /**
+     * Returns true if the user has a non-empty value for the field.
+     *
+     * @return boolean
+     */
+    public function hasData($field)
+    {
+        return $this->_data[$field] !== null && strlen(trim($this->_data[$field])) > 0;
+    }
+
+    /**
      * Logs a debug message.
      *
      * @param string $msg
