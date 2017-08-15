@@ -58,7 +58,6 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
     {
         $this->_createTables();
         set_option('harvardkey_passcode_value', $this->__randomPassword());
-        set_option('harvardkey_passcode_role', 'contributor');
         set_option('harvardkey_passcode_enabled', 0);
     }
 
