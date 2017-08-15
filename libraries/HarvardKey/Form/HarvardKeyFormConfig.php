@@ -15,10 +15,7 @@ class HarvardKey_Form_Config extends Omeka_Form {
         $this->setAutoApplyOmekaStyles(false);
 
         $user_roles = get_user_roles();
-        $role_value = get_option('harvardkey_passcode_role');
-        if(!isset($role_value)) {
-            $role_value = isset($user_roles['student']) ? 'student' : 'contributor';
-        }
+        unset($user_roles['super']);
 
         $this->addElement('text', 'harvardkey_passcode_value', array(
             'label' => __('Passcode'),
@@ -31,13 +28,13 @@ class HarvardKey_Form_Config extends Omeka_Form {
             'label' => __('Role'),
             'description' => __("Select the role users will be assigned when they enter the correct passcode."),
             'multiOptions' => $user_roles,
-            'value' => $role_value
+            'value' => get_option('harvardkey_passcode_role'),
         ));
 
         $this->addElement('checkbox', 'harvardkey_passcode_enabled', array(
             'label' => __('Enable Passcode?'),
             'value' => get_option('harvardkey_passcode_enabled'),
-            'required' => true
+            'required' => true,
         ));
     }
 

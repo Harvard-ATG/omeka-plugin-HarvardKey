@@ -5,10 +5,8 @@
  *
  * @package HarvardKey
  */
-if (!defined('HARVARDKEY_PLUGIN_DIR')) {
-    define('HARVARDKEY_PLUGIN_DIR', dirname(dirname(__FILE__)));
-}
 
+require_once(dirname(dirname(__FILE__))."/common.php");
 require_once(HARVARDKEY_PLUGIN_DIR.'/libraries/HarvardKey/JsonIdentityToken.php');
 
 class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
@@ -16,7 +14,7 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
     /**
      * @var string The default omeka role assigned to new users
      */
-    protected $_defaultOmekaRole = 'harvard_key_viewer';
+    protected $_defaultOmekaRole = HARVARDKEY_GUEST_ROLE;
 
     /**
      * @var JsonIdentityToken|null The token object containing the user's identity and related attributes.
@@ -189,11 +187,11 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
      */
     protected function _getValidRole($role)
     {
-        $valid_role = $role && in_array($role, array('researcher', 'contributor', 'admin', 'super'));
-        if(!$valid_role) {
-            return $this->_defaultOmekaRole;
+        $valid_roles = get_user_roles();
+        if(isset($valid_roles[$role])) {
+            return $role;
         }
-        return $role;
+        return $this->_defaultOmekaRole;
     }
 
     /**

@@ -1,8 +1,5 @@
 <?php
-if (!defined('HARVARDKEY_PLUGIN_DIR')) {
-    define('HARVARDKEY_PLUGIN_DIR', dirname(__FILE__));
-}
-
+require_once(dirname(__FILE__)."/common.php");
 require_once(HARVARDKEY_PLUGIN_DIR.'/libraries/HarvardKey/Form/HarvardKeyFormConfig.php');
 
 class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
@@ -13,6 +10,7 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
     protected $_hooks = array(
         'install',
         'uninstall',
+        'upgrade',
         'config',
         'config_form',
         'define_routes',
@@ -27,17 +25,6 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
     protected $_filters = array(
         'admin_whitelist'
     );
-
-    /**
-     * @var array Plugin options.
-     */
-    protected $_options = array(
-    );
-
-    /**
-     * @var string Custom role for harvard key (viewer permissions).
-     */
-    protected $_harvardkey_viewer_role = "harvard_key_viewer";
 
     /**
      * Plugin constructor.
@@ -57,7 +44,9 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
     public function hookInstall()
     {
         $this->_createTables();
+        $user_roles = get_user_roles();
         set_option('harvardkey_passcode_value', $this->__randomPassword());
+        set_option('harvardkey_passcode_role', isset($user_roles['student']) ? 'student' : 'contributor');
         set_option('harvardkey_passcode_enabled', 0);
     }
 
@@ -73,6 +62,18 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
         delete_option('harvardkey_passcode_value');
         delete_option('harvardkey_passcode_role');
         delete_option('harvardkey_passcode_enabled');
+    }
+
+    /**
+     * Upgrade the plugin.
+     *
+     * @param array $args contains: 'old_version' and 'new_version'
+     */
+    public function hookUpgrade($args)
+    {
+        $oldVersion = $args['old_version'];
+        $newVersion = $args['new_version'];
+        $this->_log("hookUpgrade(): $oldVersion to $newVersion");
     }
 
     /**
@@ -124,11 +125,11 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
     {
         $acl = $args['acl'];
 
-        // Harvard key guest role inherits the same privileges as unauthenticated users (i.e. null role)
-        // and will need to be promoted by an admin to do anything more in the system.
-        $acl->addRole($this->_harvardkey_viewer_role);
-        $acl->allow($this->_harvardkey_viewer_role, 'Users', null, new Omeka_Acl_Assert_User);
-        $acl->allow($this->_harvardkey_viewer_role, 'Users', array('login', 'logout', 'forgot-password')); // not include: 'activate'
+        // Inherit global permissions, nothing else
+        $acl->addRole(HARVARDKEY_GUEST_ROLE);
+
+        // Allow user to edit their profile
+        $acl->allow(HARVARDKEY_GUEST_ROLE, 'Users', null, new Omeka_Acl_Assert_User);
     }
 
     /**
@@ -137,26 +138,7 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
      * @param $args
      */
     function hookUsersForm($args) {
-        $user = $args['user'];
-        $form = $args['form'];
-
-        if(!$user->id) {
-            return;
-        }
-
-        $code_enabled = get_option('harvardkey_passcode_enabled');
-        if(!$code_enabled) {
-            return;
-        }
-
-        if($user->role === $this->_harvardkey_viewer_role) {
-            $form->addElement('text', 'harvardkey_passcode_submitted', array(
-                'label' => __('Passcode?'),
-                'description' => __("Optional: enter passcode to update role"),
-                'validators' => array(),
-                'value' => '',
-            ));
-        }
+        $this->_addPasscodeToUsersForm($args['user'], $args['form']);
     }
 
     /**
@@ -195,6 +177,32 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
     }
 
     /**
+     * Adds a passcode field to the user profile form.
+     *
+     * The field will only appear if the following is true:
+     *
+     * 1. The user exists in the database.
+     * 2. The user has the harvard key role.
+     * 3. The passcode option is enabled.
+     *
+     * @param User $user
+     * @param Omeka_Form $form
+     * @return bool True if the field was added, false otherwise.
+     */
+    protected function _addPasscodeToUsersForm($user, $form) {
+        if(!$user->id || $user->role !== HARVARDKEY_GUEST_ROLE || !get_option('harvardkey_passcode_enabled')) {
+            return false;
+        }
+        $form->addElement('text', 'harvardkey_passcode_input', array(
+            'label' => __('Passcode?'),
+            'description' => __("Optional: enter a valid passcode to upgrade role"),
+            'validators' => array(),
+            'value' => '',
+        ));
+        return true;
+    }
+
+    /**
      * Checks a submitted passcode and updates their role if correct.
      *
      * @param $user Omeka User record.
@@ -202,7 +210,7 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
      * @return bool True if the passcode was accepted, false otherwise.
      */
     protected function _checkPasscode($user, $postdata) {
-        $submitted_code = $postdata['harvardkey_passcode_submitted'];
+        $submitted_code = $postdata['harvardkey_passcode_input'];
         if(!isset($submitted_code) || strlen(trim($submitted_code)) == 0) {
             return false;
         }
@@ -215,6 +223,7 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
 
         // ensure the role is valid
         $valid_roles = get_user_roles();
+        unset($valid_roles['super']);
         if(!isset($valid_roles[$code_role])) {
             $this->_log("invalid option role=$code_role ... aborting passcode check! ", Zend_Log::WARN);
             return false;
@@ -252,7 +261,7 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
           KEY `inserted` (`inserted`)
         ) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci
 __SQL;
-        debug($sql);
+        $this->_log($sql);
         $db->query($sql);
     }
 
@@ -262,6 +271,7 @@ __SQL;
     protected function _dropTables() {
         $db = $this->_db;
         $sql = "DROP TABLE IF EXISTS `$db->HarvardKeyUser`";
+        $this->_log($sql);
         $db->query($sql);
     }
 
@@ -283,7 +293,7 @@ __SQL;
      * @param integer $length
      * @return string
      */
-    private function __randomPassword(int $length) {
+    private function __randomPassword(int $length=12) {
         return substr(str_shuffle(strtolower(sha1(rand() . time() . 'harvardkey'))),0, $length);
     }
 }
