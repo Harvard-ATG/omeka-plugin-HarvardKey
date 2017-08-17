@@ -17,24 +17,11 @@ class HarvardKey_Form_Config extends Omeka_Form {
         $user_roles = get_user_roles();
         unset($user_roles['super']);
 
-        $this->addElement('text', 'harvardkey_passcode_value', array(
-            'label' => __('Passcode'),
-            'description' => __('Create a passcode that users may submit on their profile page to upgrade their role. To assign roles manually, leave this option disabled.'),
-            'value' => get_option('harvardkey_passcode_value'),
-            'validators' => array('NotEmpty', 'Alnum'),
-        ));
-
         $this->addElement('select', 'harvardkey_passcode_role', array(
             'label' => __('Role'),
             'description' => __("Select the role users will be assigned when they enter the correct passcode."),
             'multiOptions' => $user_roles,
-            'value' => get_option('harvardkey_passcode_role'),
-        ));
-
-        $this->addElement('checkbox', 'harvardkey_passcode_enabled', array(
-            'label' => __('Enable Passcode?'),
-            'value' => get_option('harvardkey_passcode_enabled'),
-            'required' => true,
+            'value' => get_option('harvardkey_role'),
         ));
     }
 

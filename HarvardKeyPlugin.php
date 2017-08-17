@@ -16,7 +16,6 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
         'define_routes',
         'define_acl',
         'users_form',
-        'before_save_user',
     );
 
     /**
@@ -24,6 +23,14 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
      */
     protected $_filters = array(
         'admin_whitelist'
+    );
+
+    /**
+     * @var array Options.
+     */
+    protected $_options = array(
+        'harvardkey_role' => HARVARDKEY_GUEST_ROLE,
+        'harvardkey_emails' => '',
     );
 
     /**
@@ -43,11 +50,8 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
      */
     public function hookInstall()
     {
+        $this->_installOptions();
         $this->_createTables();
-        $user_roles = get_user_roles();
-        set_option('harvardkey_passcode_value', $this->__randomPassword());
-        set_option('harvardkey_passcode_role', isset($user_roles['student']) ? 'student' : 'contributor');
-        set_option('harvardkey_passcode_enabled', 0);
     }
 
     /**
@@ -58,10 +62,8 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
     public function hookUninstall()
     {
 
+        $this->_uninstallOptions();
         $this->_dropTables();
-        delete_option('harvardkey_passcode_value');
-        delete_option('harvardkey_passcode_role');
-        delete_option('harvardkey_passcode_enabled');
     }
 
     /**
@@ -89,9 +91,12 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
         }
         $data = $args['post'];
         $this->_log("hookConfig: ".var_export($data,1));
-        set_option('harvardkey_passcode_value', $data['harvardkey_passcode_value']);
-        set_option('harvardkey_passcode_role', $data['harvardkey_passcode_role']);
-        set_option('harvardkey_passcode_enabled', $data['harvardkey_passcode_enabled']);
+
+        foreach($data as $key => $value) {
+            if(array_key_exists($key, $this->_options)) {
+                set_option($key, $value);
+            }
+        }
     }
 
     /**
@@ -125,10 +130,9 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
     {
         $acl = $args['acl'];
 
-        // Inherit global permissions, nothing else
+        // Guest role inherits global permissions and nothing else
+        // Allow user to modify their profile.
         $acl->addRole(HARVARDKEY_GUEST_ROLE);
-
-        // Allow user to edit their profile
         $acl->allow(HARVARDKEY_GUEST_ROLE, 'Users', null, new Omeka_Acl_Assert_User);
     }
 
@@ -138,16 +142,8 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
      * @param $args
      */
     function hookUsersForm($args) {
-        $this->_addPasscodeToUsersForm($args['user'], $args['form']);
-    }
-
-    /**
-     * Hook before saving a user record.
-     *
-     * @param $args
-     */
-    function hookBeforeSaveUser($args) {
-        $this->_checkPasscode($args['record'], $args['post']);
+        $user = $args['user'];
+        $form = $args['form'];
     }
 
     /**
@@ -177,74 +173,6 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
     }
 
     /**
-     * Adds a passcode field to the user profile form.
-     *
-     * The field will only appear if the following is true:
-     *
-     * 1. The user exists in the database.
-     * 2. The user has the harvard key role.
-     * 3. The passcode option is enabled.
-     *
-     * @param User $user
-     * @param Omeka_Form $form
-     * @return bool True if the field was added, false otherwise.
-     */
-    protected function _addPasscodeToUsersForm($user, $form) {
-        if(!$user->id || $user->role !== HARVARDKEY_GUEST_ROLE || !get_option('harvardkey_passcode_enabled')) {
-            return false;
-        }
-        $form->addElement('text', 'harvardkey_passcode_input', array(
-            'label' => __('Passcode?'),
-            'description' => __("Optional: enter a valid passcode to upgrade role"),
-            'validators' => array(),
-            'value' => '',
-        ));
-        return true;
-    }
-
-    /**
-     * Checks a submitted passcode and updates their role if correct.
-     *
-     * @param $user Omeka User record.
-     * @param $postdata Submitted POST data.
-     * @return bool True if the passcode was accepted, false otherwise.
-     */
-    protected function _checkPasscode($user, $postdata) {
-        $submitted_code = $postdata['harvardkey_passcode_input'];
-        if(!isset($submitted_code) || strlen(trim($submitted_code)) == 0) {
-            return false;
-        }
-        if(!get_option('harvardkey_passcode_enabled')) {
-            return false;
-        }
-
-        $code_value = get_option('harvardkey_passcode_value');
-        $code_role = get_option('harvardkey_passcode_role');
-
-        // ensure the role is valid
-        $valid_roles = get_user_roles();
-        unset($valid_roles['super']);
-        if(!isset($valid_roles[$code_role])) {
-            $this->_log("invalid option role=$code_role ... aborting passcode check! ", Zend_Log::WARN);
-            return false;
-        }
-
-        $this->_log("passcode submitted by user_id={$user->id} passcode=$submitted_code");
-        $flashMessenger = Zend_Controller_Action_HelperBroker::getStaticHelper('FlashMessenger');
-        if($submitted_code === $code_value) {
-            $user->role = $code_role;
-            $this->_log("passcode is VALID: promoting user_id={$user->id} to role=$code_role");
-            $flashMessenger->addMessage("Passcode accepted! The user {$user->username} has been granted role: {$user->role}", "success");
-        } else {
-            $this->_log("passcode is INVALID");
-            $flashMessenger->addMessage("Invalid passcode!", "error");
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
      * Creates database tables for the plugin.
      */
     protected function _createTables() {
@@ -254,6 +182,7 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
           `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
           `harvard_key_id` varchar(128) NOT NULL,
           `omeka_user_id` int(10) unsigned NULL,
+          `omeka_user_created` tinyint(1) NULL,
           `updated` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           `inserted` timestamp NOT NULL DEFAULT '2000-01-01 00:00:00',
           PRIMARY KEY (`id`),
@@ -285,15 +214,5 @@ __SQL;
     {
         _log(get_class($this) . ": $msg");
         return $this;
-    }
-
-    /**
-     * Generates a random password.
-     *
-     * @param integer $length
-     * @return string
-     */
-    private function __randomPassword(int $length=12) {
-        return substr(str_shuffle(strtolower(sha1(rand() . time() . 'harvardkey'))),0, $length);
     }
 }

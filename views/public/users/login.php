@@ -10,7 +10,7 @@ echo head(array('bodyclass' => 'login', 'title' => $pageTitle), $header);
 </p>
 
 <?php echo flash(); ?>
-    
+
 <?php echo $this->form->setAction($this->url('harvard-key/users/login')); ?>
 
 <?php echo foot(array(), $footer); ?>

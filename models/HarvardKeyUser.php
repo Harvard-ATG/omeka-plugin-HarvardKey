@@ -4,6 +4,7 @@ class HarvardKeyUser extends Omeka_Record_AbstractRecord implements Zend_Acl_Res
 {
     public $harvard_key_id;
     public $omeka_user_id;
+    public $omeka_user_created;
     public $updated;
     public $inserted;
 
@@ -18,11 +19,22 @@ class HarvardKeyUser extends Omeka_Record_AbstractRecord implements Zend_Acl_Res
         return $this->save(true);
     }
 
-    public function linkToUser($omeka_user_id)
+    public function linkUser($omeka_user_id, $omeka_user_created)
     {
         $this->omeka_user_id = $omeka_user_id;
+        $this->omeka_user_created = ($omeka_user_created ? 1 : 0);
         $this->save(true);
         return $this;
+    }
+
+    public function linkNewUser($omeka_user_id)
+    {
+        return $this->linkUser($omeka_user_id, true);
+    }
+
+    public function linkExistingUser($omeka_user_id)
+    {
+        return $this->linkUser($omeka_user_id, false);
     }
 
     public function isLinkedToUser()

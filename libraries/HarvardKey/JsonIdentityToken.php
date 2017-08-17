@@ -11,7 +11,6 @@
  *     (required) "issued" => the time at which the token was issued
  *     (optional) "name"   => the display name of the user
  *     (optional) "email"  => the email of the user
- *     (optional) "role"   => the role of the user
  *
  * Notes:
  *
@@ -38,7 +37,7 @@ class JsonIdentityToken
 
     // Required and optional fields that may be present in data
     protected $_fieldsRequired = array("id", "issued");
-    protected $_fieldsOptional = array("name", "email", "role");
+    protected $_fieldsOptional = array("name", "email");
 
     // HMAC settings
     const HMAC_ALGO = "sha256"; // algorithm to use for the hash-based message auth code
@@ -235,16 +234,6 @@ class JsonIdentityToken
     }
 
     /**
-     * Returns the role.
-     *
-     * @return string|null
-     */
-    public function getRole()
-    {
-        return $this->_data['role'];
-    }
-
-    /**
      * Returns the user display name.
      *
      * @return string|null
@@ -265,13 +254,13 @@ class JsonIdentityToken
     }
 
     /**
-     * Returns true if the user has a non-empty value for the field.
+     * Returns true if the user has an email address.
      *
      * @return boolean
      */
-    public function hasData($field)
+    public function hasEmail()
     {
-        return $this->_data[$field] !== null && strlen(trim($this->_data[$field])) > 0;
+        return $this->_data['email'] !== null && strlen(trim($this->_data['email'])) > 0;
     }
 
     /**
