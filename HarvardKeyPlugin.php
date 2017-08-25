@@ -15,14 +15,17 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
         'config_form',
         'define_routes',
         'define_acl',
-        'users_form',
+        'admin_users_browse_each',
+        'admin_head'
     );
 
     /**
      * @var array Plugin filters.
      */
     protected $_filters = array(
-        'admin_whitelist'
+        'admin_whitelist',
+        'admin_navigation_users',
+
     );
 
     /**
@@ -137,13 +140,26 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
     }
 
     /**
-     * Hook for modifying the user form.
+     * Hook for modifying each user on the admin browse users view.
      *
      * @param $args
      */
-    function hookUsersForm($args) {
-        $user = $args['user'];
-        $form = $args['form'];
+    public function hookAdminUsersBrowseEach($args) {
+       $user = $args['user'];
+       $view = $args['view'];
+       $harvard_key_user = HarvardKeyUser::findByOmekaUserId($user->id);
+       if($harvard_key_user) {
+           $title = "Harvard key user. Record created {$harvard_key_user->inserted}";
+           echo '<i class="fa fa-key harvardkey-user" aria-hidden="true" title="'.$title.'"></i>';
+       }
+    }
+
+    /**
+     * Hook for modifying the head section of the admin view.
+     *
+     */
+    public function hookAdminHead() {
+        queue_css_url('https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css');
     }
 
     /**
@@ -171,6 +187,26 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
 
         return $whitelist;
     }
+
+    /**
+     * Hook to filter the admin navigation menu on users/edit pages.
+     *
+     * Remove the "Change Password" menu item for users who logged in via Harvard Key
+     * and have an unuseable password entry.
+     */
+     public function filterAdminNavigationUsers($nav, $args) {
+       $filtered_nav = array();
+       foreach($nav as $item) {
+         if($item['privilege'] == 'change-password') {
+           $user = $item['resource'];
+           if($user->password == HARVARDKEY_UNUSEABLE_PASSWORD && current_user()->role != "super") {
+             continue;
+           }
+         }
+         $filtered_nav[] = $item;
+       }
+       return $filtered_nav;
+     }
 
     /**
      * Creates database tables for the plugin.

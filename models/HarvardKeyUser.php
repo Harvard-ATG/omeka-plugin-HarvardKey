@@ -56,4 +56,9 @@ class HarvardKeyUser extends Omeka_Record_AbstractRecord implements Zend_Acl_Res
     {
         return 'HarvardKey_User';
     }
+
+    public static function findByOmekaUserId($omeka_user_id) {
+        $table = get_db()->getTable('HarvardKeyUser');
+        return $table->findBySql('omeka_user_id = ?', array($omeka_user_id), true);
+    }
 }
