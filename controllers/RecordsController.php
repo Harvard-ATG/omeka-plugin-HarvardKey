@@ -1,6 +1,6 @@
 <?php
 /**
- * Link controller.
+ * Records controller.
  *
  * @package HarvardKey
  */
