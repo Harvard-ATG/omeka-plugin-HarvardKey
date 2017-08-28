@@ -25,13 +25,11 @@
         <?php echo get_view()->formTextarea('harvardkey_emails', get_option('harvardkey_emails')); ?>
     </div>
 </div>
-<!--
+
 <div class="field">
-    <div class="two columns alpha">
-        <?php echo get_view()->formLabel('harvardkey_delete', __('Actions')); ?>
-    </div>
+    <div class="two columns alpha">&nbsp;</div>
     <div class="inputs five columns omega">
-        <?php echo get_view()->formButton('harvardkey_delete', __('Delete Harvard Key Users'), array('class' => 'red button delete-confirm')); ?>
+        <a href="<?php echo get_view()->url('/harvard-key/records/browse'); ?>" class="blue button"><?php echo __('View Harvard Key Users'); ?></a>
+        <a href="<?php echo get_view()->url('/harvard-key/records/delete-confirm'); ?>" class="red button"><?php echo __('Delete Harvard Key Users'); ?></a>
     </div>
 </div>
--->

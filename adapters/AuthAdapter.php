@@ -121,7 +121,7 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
 
         // Check if a valid omeka user is linked to the harvard key record
         $omeka_user_id = null;
-        if($harvard_key_user->isLinkedToUser()) {
+        if($harvard_key_user->isLinked()) {
             $this->_log("checking link {$harvard_key_user->harvard_key_id} => {$harvard_key_user->omeka_user_id}");
             $omeka_user = $this->_findOmekaUserById($harvard_key_user->omeka_user_id);
             if($omeka_user) {
@@ -139,7 +139,7 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
             $omeka_user = $this->_findOmekaUserByEmail($email);
             if($omeka_user) {
                 $this->_log("omeka user with email = $email EXISTS... linking {$omeka_user->id}");
-                $harvard_key_user->linkExistingUser($omeka_user->id);
+                $harvard_key_user->linkToExisting($omeka_user->id);
                 $omeka_user->active = 1;
                 $omeka_user->save();
                 $omeka_user_id = $omeka_user->id;
@@ -177,7 +177,7 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
 
         // Set the omeka user object attributes
         $omeka_role = $this->_getOmekaRole();
-        $omeka_username = $harvard_key_user->generateUsername();
+        $omeka_username = $harvard_key_user->getUsername();
         $omeka_name = $harvard_key_name ? $harvard_key_name : $omeka_username;
         $omeka_email = $harvard_key_email ? $harvard_key_email : "";
         $omeka_user_values = array(
@@ -198,7 +198,7 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
             return false;
         }
 
-        $harvard_key_user->linkNewUser($omeka_user_id);
+        $harvard_key_user->linkToNew($omeka_user_id);
         $this->_log("successfully linked harvard_key_id={$harvard_key_user->harvard_key_id} with omeka user id=$omeka_user_id");
 
         return $omeka_user_id;
@@ -238,18 +238,6 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
     {
         $table = $this->_db->getTable('User');
         return $table->findBySql('id = ?', array($omeka_user_id), true);
-    }
-
-    /**
-     * Finds the Omeka user record by the omeka username.
-     *
-     * @param string $omeka_username
-     * @return Omeka_Record_AbstractRecord
-     */
-    protected function _findOmekaUserByUsername($omeka_username)
-    {
-        $table = $this->_db->getTable('User');
-        return $table->findBySql('username = ?', array($omeka_username), true);
     }
 
     /**

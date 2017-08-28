@@ -149,7 +149,7 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
        $view = $args['view'];
        $harvard_key_user = HarvardKeyUser::findByOmekaUserId($user->id);
        if($harvard_key_user) {
-           $title = "Harvard key user. Record created {$harvard_key_user->inserted}";
+           $title = "Harvard key: {$harvard_key_user->harvard_key_id}";
            echo '<i class="fa fa-key harvardkey-user" aria-hidden="true" title="'.$title.'"></i>';
        }
     }
