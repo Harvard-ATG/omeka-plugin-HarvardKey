@@ -30,6 +30,6 @@
     <div class="two columns alpha">&nbsp;</div>
     <div class="inputs five columns omega">
         <a href="<?php echo get_view()->url('/harvard-key/records/browse'); ?>" class="blue button"><?php echo __('View Harvard Key Users'); ?></a>
-        <a href="<?php echo get_view()->url('/harvard-key/records/delete-confirm'); ?>" class="red button"><?php echo __('Delete Harvard Key Users'); ?></a>
+        <a href="<?php echo get_view()->url('/harvard-key/records/manage'); ?>" class="red button"><?php echo __('Manage Harvard Key Users'); ?></a>
     </div>
 </div>

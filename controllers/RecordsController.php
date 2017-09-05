@@ -22,7 +22,7 @@ class HarvardKey_RecordsController extends Omeka_Controller_AbstractActionContro
     {
         $user = $this->getCurrentUser();
         if($user->role != "super") {
-            throw new Omeka_Controller_Exception_403('You do not have permission to access this pag (requires super user access).');
+            throw new Omeka_Controller_Exception_403('You do not have permission to access this page (requires super user access).');
         }
     }
 
@@ -30,20 +30,21 @@ class HarvardKey_RecordsController extends Omeka_Controller_AbstractActionContro
     {
         $this->view->header = "header";
         $this->view->footer = "footer";
-        $records = $this->_getRecords(array('only_created' => false));
+        $records = $this->_getRecords();
         $this->view->assign(array('records' => $records, 'total_results' => count($records)));
     }
 
-    public function deleteConfirmAction()
+    public function manageAction()
     {
         $this->view->header = "header";
         $this->view->footer = "footer";
-        $this->view->users_to_delete = $this->_getRecords(array('only_created' => true));
+        $records = $this->_getOnlyCreatedRecords();
+        $this->view->assign('records', $records);
     }
 
     public function deleteAction()
     {
-        $records = $this->_getRecords(array('only_created' => true));
+        $records = $this->_getOnlyCreatedRecords();
         $total = count($records);
 
         $db = get_db();
@@ -62,7 +63,45 @@ __SQL;
         }
 
         $this->_helper->flashMessenger("Successfully deleted $total Harvard Key users.", 'success');
-        $this->_helper->redirector->gotoUrl('/harvard-key/records/delete-confirm');
+        $this->_helper->redirector->gotoUrl('/harvard-key/records/manage');
+    }
+
+    public function deactivateAction()
+    {
+        $total = $this->_setActive(0);
+        $this->_helper->flashMessenger("Successfully deactivated $total Harvard Key users.", 'success');
+        $this->_helper->redirector->gotoUrl('/harvard-key/records/manage');
+    }
+
+    public function activateAction()
+    {
+        $total = $this->_setActive(1);
+        $this->_helper->flashMessenger("Successfully activated $total Harvard Key users.", 'success');
+        $this->_helper->redirector->gotoUrl('/harvard-key/records/manage');
+    }
+
+    protected function _setActive($active)
+    {
+        $active = $active ? 1 : 0;
+        $records = $this->_getOnlyCreatedRecords();
+        $total = count($records);
+        $db = get_db();
+        $user_table = $db->getTableName('User');
+        $harvard_key_table = $db->getTableName('HarvardKeyUser');
+
+        $query = <<<__SQL
+UPDATE `$user_table` SET active = $active WHERE EXISTS (SELECT 0 FROM `$harvard_key_table` h WHERE h.omeka_user_id = `$user_table`.id AND h.omeka_user_created = 1);
+__SQL;
+        $db->query($query);
+        return $total;
+    }
+
+    protected function _getOnlyCreatedRecords($options=null)
+    {
+        if(!isset($options)) {
+            $options = array();
+        }
+        return $this->_getRecords(array_merge($options, array('only_created' => true)));
     }
 
     protected function _getRecords($options=null)
@@ -84,12 +123,15 @@ __SQL;
                 continue;
             }
             $email = null;
+            $active = null;
             if(isset($omeka_users_by_id[$harvard_key_user->omeka_user_id])) {
                 $omeka_user= $omeka_users_by_id[$harvard_key_user->omeka_user_id];
                 $email = $omeka_user->email;
+                $active = $omeka_user->active;
             }
             $records[] = array(
                 'email'              => $email,
+                'active'             => $active,
                 'omeka_user_created' => $harvard_key_user->omeka_user_created,
                 'omeka_user_id'      => $harvard_key_user->omeka_user_id,
                 'harvard_key_id'     => $harvard_key_user->harvard_key_id,
