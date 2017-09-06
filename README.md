@@ -1,6 +1,6 @@
 # Omeka Harvard Key Plugin
 
-**HarvardKey** is a plugin that adds a login option so that users can authenticate with the Harvard Key system in addition to logging in a username and password.
+**HarvardKey** is a plugin that adds a login option so that users can authenticate with the Harvard Key system in addition to logging in with a username and password.
 
 ## Setup
 
