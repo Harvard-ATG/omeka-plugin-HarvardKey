@@ -16,9 +16,9 @@ This plugin does not use the CAS/SAML protocol directly, but instead interfaces 
 Omeka can use the identity information to create a new account or link to an existing account based on the email address.
 
 **Assumptions**:
-- An authentication provider exists on the same domain as the omeka site (so cookies can be shared). This provider handles the CAS/SAML auth flow with the Harvard Key identity provider.
-- The authentication provider will return a signed token (via cookie) with identity information such as _eduPersonPrincipalName_, _mail_, and _displayName_.
-- The plugin will be configured with authorization rules that determine whether users are permitted to login or not, and what role/permissions they are assigned.
+- An auth service provider (SP) exists on the same domain as the omeka site so that cookies can be shared. The SP handles the CAS/SAML protocol to authenticate with the Harvard Key identity provider.
+- The auth service provider (SP) returns a signed token in JSON format via cookie. The token contains identity information such as _id_ (_eduPersonPrincipalName_), _mail_, and _displayName_. 
+- The plugin is configured with authorization rules that determine whether users are permitted to login (allow/deny) and if they are allowed to login, what role/permissions they receive.
 
 ## Diagram
 
