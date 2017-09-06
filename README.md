@@ -1,17 +1,17 @@
 # Omeka Harvard Key Plugin
 
-**HarvardKey** is a plugin that adds a secondary login option so that users can authenticate with the Harvard Key system in addition or instead of a username/password.
+**HarvardKey** is a plugin that adds a login option so that users can authenticate with the Harvard Key system in addition to logging in a username and password.
 
 ## Setup
 
 1. Install into the Omeka plugins directory. 
 2. Update `auth.ini` settings so that the `url` points to the appropriate login endpoint at the CAS/SAML service provider, and the `secret_key` is the same as the one used by the service provider to sign the identity token returned in the cookie.
 
-## Overview
+## Description
 
-This plugin does not interface directly with the Harvard Key system via CAS/SAML, but instead redirects users to a service provider that handles that authentication flow with the identity provider. From the perspective of the plugin, a user is authenticated when a signed cookie is provided with identity information. The cryptographic signature is used to ensure the authenticity of the information in the JSON token. The token itself should contain identity information that Omeka can use to create a new account or link to an existing account.
+This plugin does not use the CAS/SAML protocol directly, but instead interfaces with an intermediate auth service provider which handles that part of the authentication process. The auth service provider simply returns a cryptographically signed cookie (JSON format) with identity information including name, email, and ID (the eduPersonPrincipalName) to the plugin. 
 
-The CAS/SAML service provider is out of scope for this plugin, but is intended to be a common service for multiple Omeka sites. The purpose of the plugin is to faciliate the authentication flow and handle authorization rules that are specific to each site.
+Omeka can use the identity information to create a new account or link to an existing account based on the email address.
 
 ## Assumptions
 
