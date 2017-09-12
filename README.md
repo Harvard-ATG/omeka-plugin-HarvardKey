@@ -26,6 +26,8 @@ Assumptions:
 - The auth service provider (SP) returns a signed token in JSON format via cookie that Omeka sites can consume. The token contains identity information such as _id_ (_eduPersonPrincipalName_), _mail_, and _displayName_. 
 - The plugin is configured with authorization rules that determine whether users are permitted to login (allow/deny) and if they are allowed to login, what role/permissions they receive.
 
+![Diagram](https://raw.githubusercontent.com/Harvard-ATG/omeka-plugin-HarvardKey/master/doc/diagram.png "Diagram")
+
 ### Configuration
 
 The plugin configuration page provides the following options:
@@ -39,10 +41,3 @@ The plugin provides the following administrative features:
 
 1. **Delete Accounts**. This allows an admin to delete ALL user accounts created by logging in with Harvard Key (not those linked to existing accounts). This is mostly intended for use during shopping period as a way to allow anyone to login for a short period, and then clear out those accounts and restrict logins to enrollees using the whitelist feature.
 2. **Deactivate Accounts**. This allows an admin to set all user accounts to _inactive_, which prevents those users from logging in.
-
-
-## Diagram
-
-The diagram below shows the high-level flow of requests between the user agent (browser), the omeka site containing protected resources, the auth service provider for the omeka site, and the Harvard Key identity provider.
-
-![Diagram](https://raw.githubusercontent.com/Harvard-ATG/omeka-plugin-HarvardKey/master/doc/diagram.png "Diagram")
