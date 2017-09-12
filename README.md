@@ -1,6 +1,6 @@
 # Omeka Harvard Key Plugin
 
-**HarvardKey** is a plugin that adds a login option so that users can authenticate with the Harvard Key system in addition to logging in with a username and password.
+**HarvardKey** is a plugin that adds the ability for users to authenticate with their Harvard Key credentials.
 
 ![Login Screen](https://raw.githubusercontent.com/Harvard-ATG/omeka-plugin-HarvardKey/master/doc/loginscreen.png "Login Screen")
 
@@ -11,12 +11,19 @@
 
 ## Description
 
-This plugin uses Omeka hooks to override the default login screen in order to add an option for logging in with Harvard Key. Users can still login with their existing username/password. When users choose to login with Harvard Key, the plugin delegates the authentication process (CAS/SAML) to an intermediate auth service provider (SP). That SP is registered directly with the Harvard Key identity provider and is responsible for authenticating the user and then returning the user back to the original Omeka site with identity information (name, email, and eduPersonPrincipalName). Note that the eduPersonPrincipalName is an opaque identifier that uniquely identifies that user.
+This plugin overrides the default login screen and adds an option to login in with Harvard Key. Users can still login with their existing username/password. 
 
-### Assumptions
+### How it works
 
-- An auth service provider (SP) exists on the same domain as the omeka site so that cookies can be shared. The SP handles the CAS/SAML protocol to authenticate with the Harvard Key identity provider.
-- The auth service provider (SP) returns a signed token in JSON format via cookie. The token contains identity information such as _id_ (_eduPersonPrincipalName_), _mail_, and _displayName_. 
+When users choose to login with Harvard Key, the plugin directs users to an intermediate web service that handles the CAS/SAML authentication with Harvard Key. This intermediate service provider (SP) is registered directly with Harvard Key's identity provider (IDP), and is responsible for authenticating the user and returning them back to the Omeka site with identity information such as name, email, and eduPersonPrincipalName (i.e. eppn).
+
+The rationale for creating the intermediate auth service is that it allows us to register once for all Omeka sites, rather than having to register for each Omeka site, which would be cumbersome since new Omeka sites are created frequently. This is based on the assumption that the platform for all Omeka sites is controlled from end to end. 
+
+Assumptions:
+
+- All Omeka sites exist on the same sub-domain.
+- An auth service provider (SP) exists on the same domain as the omeka sites so that cookies can be shared. The SP handles the CAS/SAML protocol to authenticate with the Harvard Key identity provider.
+- The auth service provider (SP) returns a signed token in JSON format via cookie that Omeka sites can consume. The token contains identity information such as _id_ (_eduPersonPrincipalName_), _mail_, and _displayName_. 
 - The plugin is configured with authorization rules that determine whether users are permitted to login (allow/deny) and if they are allowed to login, what role/permissions they receive.
 
 ### Configuration
