@@ -28,14 +28,14 @@ Assumptions:
 
 ![Diagram](https://raw.githubusercontent.com/Harvard-ATG/omeka-plugin-HarvardKey/master/doc/diagram.png "Diagram")
 
-### Configuration
+## Configuration
 
 The plugin configuration page provides the following options:
 
 1. You can configure the **role** that authenticated users are assigned. The default is a guest role that only allows the user to see public content. Any valid role can be selected.
 2. You can set a **whitelist** of allowed emails that determine which users are permitted to login with Harvard Key. This is based on the user's official email address. The default is to allow any user to login (empty list). 
 
-### Management
+## Management
 
 The plugin provides the following administrative features:
 
