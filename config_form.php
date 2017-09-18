@@ -25,7 +25,14 @@
         <?php echo get_view()->formTextarea('harvardkey_emails', get_option('harvardkey_emails')); ?>
     </div>
 </div>
-
+<div class="field">
+    <div class="two columns alpha">
+        <?php echo get_view()->formLabel('harvardkey_protect', __('Require login?')); ?>
+    </div>
+    <div class="inputs five columns omega">
+        <?php echo get_view()->formCheckbox('harvardkey_protect', 1, array('checked' => get_option('harvardkey_protect') ? true : false)); ?>
+    </div>
+</div>
 <div class="field">
     <div class="two columns alpha">&nbsp;</div>
     <div class="inputs five columns omega">

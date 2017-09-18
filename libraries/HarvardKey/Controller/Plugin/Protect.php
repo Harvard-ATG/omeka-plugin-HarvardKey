@@ -74,10 +74,13 @@ class HarvardKey_Controller_Plugin_Protect extends Zend_Controller_Plugin_Abstra
      */
     private function _requireLogin($request)
     {
+        if(!get_option('harvardkey_protect')) {
+            return false;
+        }
+
         $action = $request->getActionName();
         $controller = $request->getControllerName();
         $module = $request->getModuleName();
-        error_log(">> $module/$controller/$action");
 
         foreach ($this->_whitelist as $entry) {
             // Any whitelist entry that omits the module will be assumed to be
