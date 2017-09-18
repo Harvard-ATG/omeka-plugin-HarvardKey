@@ -28,16 +28,45 @@ Assumptions:
 
 ![Diagram](https://raw.githubusercontent.com/Harvard-ATG/omeka-plugin-HarvardKey/master/doc/diagram.png "Diagram")
 
-## Configuration
+## Plugin Options
 
-The plugin configuration page provides the following options:
+The plugin settings page no the admin UI provides the following options:
 
-1. You can configure the **role** that authenticated users are assigned. The default is a guest role that only allows the user to see public content. Any valid role can be selected.
-2. You can set a **whitelist** of allowed emails that determine which users are permitted to login with Harvard Key. This is based on the user's official email address. The default is to allow any user to login (empty list). 
+1. Set the **role** that authenticated users are assigned. The default is a guest role that only allows the user to see public content. Any valid role can be selected.
+2. Set a **whitelist** of allowed emails that determine which users are permitted to login with Harvard Key. This is based on the user's official email address. The default is to allow any user to login (empty list). 
 
-## Management
-
-The plugin provides the following administrative features:
+In addition to the settings, the following functionality is available:
 
 1. **Delete Accounts**. This allows an admin to delete ALL user accounts created by logging in with Harvard Key (not those linked to existing accounts). This is mostly intended for use during shopping period as a way to allow anyone to login for a short period, and then clear out those accounts and restrict logins to enrollees using the whitelist feature.
 2. **Deactivate Accounts**. This allows an admin to set all user accounts to _inactive_, which prevents those users from logging in.
+
+## Protecting the Entire Site
+
+Omeka doesn't have a built-in way to force a login for all pages, since part of the site is public by default. 
+However, using a controller plugin modeled after `Omeka_Controller_Plugin_Admin`, you can require a site-wide login. 
+To register the plugin, you must replace the default `index.php` with the following:
+
+```php
+// Bootstrap the application.
+require_once 'bootstrap.php';
+
+// Configure and initialize the application.
+$application = new Omeka_Application(APPLICATION_ENV);
+$bootstrap = $application->getBootstrap();
+$bootstrap->setOptions(array(
+    'resources' => array(
+        'theme' => array(
+            'basePath' => THEME_DIR,
+            'webBasePath' => WEB_THEME
+        )
+    )
+));
+$application->initialize();
+
+// Register custom plugin to protect site.
+$front = $bootstrap->getResource('FrontController');
+$front->registerPlugin(new HarvardKey_Controller_Plugin_Protect);
+
+// Run the application!
+$application->run();
+```
