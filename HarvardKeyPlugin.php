@@ -34,7 +34,8 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
     protected $_options = array(
         'harvardkey_role' => HARVARDKEY_GUEST_ROLE,
         'harvardkey_emails' => '',
-        'harvardkey_protect' => 0
+        'harvardkey_protect' => 0,
+        'harvardkey_membersonly' => 0,
     );
 
     /**

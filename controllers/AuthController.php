@@ -58,9 +58,8 @@ class HarvardKey_AuthController extends Omeka_Controller_AbstractActionControlle
             return;
         }
 
-        $allowed_emails = get_option('harvardkey_emails');
         $token = new JsonIdentityToken($cookie, $secret_key, $expires);
-        $authAdapter = new HarvardKey_Auth_Adapter($this->_helper->db->getDb(), $token, $allowed_emails);
+        $authAdapter = new HarvardKey_Auth_Adapter($this->_helper->db->getDb(), $token);
         $authResult = $this->_auth->authenticate($authAdapter);
         if(!$authResult->isValid()) {
             $this->view->assign("authCls", "red");

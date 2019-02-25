@@ -17,21 +17,15 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
     protected $_token = null;
 
     /**
-     * @var string The whitelist of email addresses (newline separated) that are allowed to login.
-     */
-    protected $_allowedEmails = '';
-
-    /**
      * HarvardKey_Auth_Adapter constructor.
      *
      * @param Omeka_Db $db
      * @param JsonIdentityToken $token
      */
-    public function __construct(Omeka_Db $db, JsonIdentityToken $token, string $emails)
+    public function __construct(Omeka_Db $db, JsonIdentityToken $token)
     {
         $this->_db = $db;
         $this->_token = $token;
-        $this->_allowedEmails = $emails;
     }
 
     /**
@@ -46,26 +40,35 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
     {
         $this->_log("authenticate()");
 
-        // check that the provided token data is valid
+        // (1) Check that the provided token data is valid
         if(!$this->_token->isValid()) {
             $this->_log("auth failure: harvard key token is invalid");
             return new Zend_Auth_Result(Zend_Auth_Result::FAILURE_CREDENTIAL_INVALID, null, array('Login failed (invalid token).'));
         }
 
-        // check whitelist to see if email is permitted to login
-        if(!$this->_isEmailAllowed($this->_token->getEmail())) {
-            $this->_log("auth failure: harvard key email is not permitted: ". $this->_token->getEmail());
-            return new Zend_Auth_Result(Zend_Auth_Result::FAILURE, null, array('Login failed because email address ['. $this->_token->getEmail() .'] is not in the list of allowed emails.'));
+        // (2) If only members are allowed to authenticate, check the the user is either in the prescreened list
+        // or has a valid omeka user account.
+        if($this->_isMembersOnly()) {
+            $email_whitelisted = in_array($this->_token->getEmail(), $this->_getEmails());
+            if(!$email_whitelisted) {
+                $omeka_user = $this->_findOmekaUserByEmail($this->_token->getEmail());
+                if(!$omeka_user) {
+                    return new Zend_Auth_Result(Zend_Auth_result::FAILURE, null, array("Harvard Key login restricted to members only."));
+                }
+            }
         }
 
-        // attempt to load or create a harvard key record linked to an omeka user
+        // (3) Creates/updates a harvard key record linking to an omeka user.
+        //  - When the user exists in omeka, tries to link via email
+        //  - When the user does not exist, creates a new user and assigns a role such that if they are in the
+        //    prescreened whitelist, they get the designated role, otherwise they get the guest role.
         $harvard_key_user = $this->_createOrUpdateUser();
         if(!$harvard_key_user) {
-            $this->_log("auth failure: error creating or updating harvard key user");
+            $this->_log("auth failure: error creating or updating harvard key user", Zend_Log::ERROR);
             return new Zend_Auth_Result(Zend_Auth_result::FAILURE, null, array("Login failed because Harvard Key could not be associated with an Omeka account."));
         }
 
-        // attempt lookup the associated omeka user record
+        // (4) Lookup the omeka user record
         $omeka_user = $this->_findOmekaUserById($harvard_key_user->omeka_user_id);
         if(!$omeka_user) {
             $this->_log("auth failure: error fetching omeka user id: {$harvard_key_user->omeka_user_id} for harvard key row id: {$harvard_key_user->id}");
@@ -76,21 +79,6 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
         }
 
         return new Zend_Auth_Result(Zend_Auth_Result::SUCCESS, $harvard_key_user->omeka_user_id);
-    }
-
-    /**
-     * Ensures that the given email is allowed to login.
-     *
-     * @param string $email
-     * @return bool
-     */
-    protected function _isEmailAllowed($email)
-    {
-        if($this->_allowedEmails == "") {
-            return true;
-        }
-        $emails = preg_split("/(\r\n|\n|\r)/", $this->_allowedEmails);
-        return in_array($email, $emails);
     }
 
     /**
@@ -133,24 +121,27 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
         }
 
         // Attempt to link to a user having the same email address
-        if(!$omeka_user_id && $this->_token->hasEmail()) {
-            $email = $this->_token->getEmail();
-            $this->_log("harvard key user $harvard_key_id has email = $email");
-            $omeka_user = $this->_findOmekaUserByEmail($email);
-            if($omeka_user) {
-                $this->_log("omeka user with email = $email EXISTS... linking {$omeka_user->id}");
-                $harvard_key_user->linkToExisting($omeka_user->id);
-                $omeka_user->active = 1;
-                $omeka_user->save();
-                $omeka_user_id = $omeka_user->id;
+        if(!$omeka_user_id) {
+            if($this->_token->hasEmail()) {
+                $email = $this->_token->getEmail();
+                $this->_log("harvard key user $harvard_key_id has email = $email");
+                $omeka_user = $this->_findOmekaUserByEmail($email);
+                if ($omeka_user) {
+                    $this->_log("omeka user with email = $email EXISTS... linking {$omeka_user->id}");
+                    $harvard_key_user->linkToExisting($omeka_user->id);
+                    $omeka_user->save();
+                    $omeka_user_id = $omeka_user->id;
+                } else {
+                    $this->_log("omeka user with email = $email NOT FOUND", Zend_Log::WARN);
+                }
             } else {
-                $this->_log("omeka user with email = $email NOT FOUND", Zend_Log::WARN);
+                $this->_log("harvard key user $harvard_key_id does not have an email", Zend_Log::WARN);
             }
         }
 
-        // Attempt to create and link a new omeka user if none has already been linked
+        // Create a new omeka user
         if(!$omeka_user_id) {
-            $this->_log("creating new omeka user record");
+            $this->_log("creating new omeka user record...");
             $insert_row_id = $this->_createOmekaUser($harvard_key_user);
             if(!$insert_row_id) {
                 $this->_log("error creating omeka user", Zend_Log::WARN);
@@ -176,7 +167,7 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
         $harvard_key_email = $this->_token->getEmail();
 
         // Set the omeka user object attributes
-        $omeka_role = $this->_getOmekaRole();
+        $omeka_role = $this->_getOmekaRoleForEmail($harvard_key_email);
         $omeka_username = $harvard_key_user->getUsername();
         $omeka_name = $harvard_key_name ? $harvard_key_name : $omeka_username;
         $omeka_email = $harvard_key_email ? $harvard_key_email : "";
@@ -214,6 +205,55 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
         $valid_roles = get_user_roles();
         $role = get_option('harvardkey_role');
         return isset($valid_roles[$role]) ? $role : HARVARDKEY_GUEST_ROLE;
+    }
+
+    /**
+     * Returns the designated emails.
+     *
+     * @return array emails
+     */
+    protected function _getEmails()
+    {
+        $harvardkey_emails = get_option('harvardkey_emails');
+        if($harvardkey_emails) {
+            $emails = array_filter(preg_split("/(\r\n|\n|\r)/", $harvardkey_emails));
+        } else {
+            $emails = array();
+        }
+        return $emails;
+    }
+
+    /**
+     * Returns true if authentication is restricted to the prescreened emails and existing omeka users.
+     *
+     * @return bool
+     */
+    protected function _isMembersOnly()
+    {
+        $harvardkey_membersonly = get_option('harvardkey_membersonly');
+        return (bool) $harvardkey_membersonly;
+    }
+
+    /**
+     * Returns the role that should be assigned to the omeka user given a particular email address.
+     *
+     * This is used to automatically elevate the role for a group of users when they login for the first time.
+     *
+     * @param string $email
+     * @return bool
+     */
+    protected function _getOmekaRoleForEmail($email)
+    {
+        $default_omeka_role = HARVARDKEY_GUEST_ROLE;
+        $found = in_array($email, $this->_getEmails());
+        if($found) {
+            $omeka_role = $this->_getOmekaRole();
+            $this->_log("email '$email' found in the whitelist, omeka role is: $omeka_role");
+        } else {
+            $omeka_role = $default_omeka_role;
+            $this->_log("email '$email' not found in the whitelist, omeka role is: $default_omeka_role");
+        }
+        return $omeka_role;
     }
 
     /**

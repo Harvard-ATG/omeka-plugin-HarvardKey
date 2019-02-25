@@ -1,11 +1,24 @@
 <div class="field">
     <div class="two columns alpha">
-        <?php echo get_view()->formLabel('harvardkey_role', __('Role')); ?>
+        <?php echo get_view()->formLabel('harvardkey_emails', __('Prescreened Emails')); ?>
+    </div>
+    <div class="inputs five columns omega">
+        <p class="explanation">
+            <?php echo __('Enter a list of emails, one email per line. '
+            .' The purpose of this list is to automatically grant new users a specific role when they login the first time.'
+            .' If the user already has an account on the site, then they will be linked to that account. '); ?>
+        </p>
+        <?php echo get_view()->formTextarea('harvardkey_emails', get_option('harvardkey_emails')); ?>
+    </div>
+</div>
+<div class="field">
+    <div class="two columns alpha">
+        <?php echo get_view()->formLabel('harvardkey_role', __('Prescreened Role')); ?>
     </div>
     <div class="inputs five columns omega">
         <p class="explanation">
             <?php
-            echo __('Select the role you would like to assign to new users that have logged in with Harvard Key. ');
+            echo __('Select the role you would like to to assign to prescreened users. Note that ');
             echo __('The default role is <i>'.Inflector::humanize(HARVARDKEY_GUEST_ROLE).'</i>, which only allows users to view public content.');
             ?>
         </p>
@@ -14,26 +27,23 @@
 </div>
 <div class="field">
     <div class="two columns alpha">
-        <?php echo get_view()->formLabel('harvardkey_emails', __('Allowed Emails')); ?>
-    </div>
-    <div class="inputs five columns omega">
-        <p class="explanation">
-            <?php echo __('Enter a list of emails that you would like to allow to login with Harvard Key. '
-            .'Users will only be allowed to login when the Harvard Key email matches an email in the list. '
-            .'One email per line.'); ?>
-        </p>
-        <?php echo get_view()->formTextarea('harvardkey_emails', get_option('harvardkey_emails')); ?>
-    </div>
-</div>
-<div class="field">
-    <div class="two columns alpha">
         <?php echo get_view()->formLabel('harvardkey_protect', __('Require login?')); ?>
     </div>
     <div class="inputs five columns omega">
         <?php echo get_view()->formCheckbox('harvardkey_protect', 1, array('checked' => get_option('harvardkey_protect') ? true : false)); ?>
-        <span class="explanation">&nbsp;Require visitors to the site to log in before viewing any content</span>
+        <span class="explanation">&nbsp;Check this field to require visitors to log in before viewing any content</span>
     </div>
 </div>
+<div class="field">
+    <div class="two columns alpha">
+        <?php echo get_view()->formLabel('harvardkey_membersonly', __('Members Only?')); ?>
+    </div>
+    <div class="inputs five columns omega">
+        <?php echo get_view()->formCheckbox('harvardkey_membersonly', 1, array('checked' => get_option('harvardkey_membersonly') ? true : false)); ?>
+        <span class="explanation">&nbsp;Check this field to only allow users to login if they have an account on this site or are listed in the prescreened emails.</span>
+    </div>
+</div>
+
 <div class="field">
     <div class="two columns alpha">&nbsp;</div>
     <div class="inputs five columns omega">
