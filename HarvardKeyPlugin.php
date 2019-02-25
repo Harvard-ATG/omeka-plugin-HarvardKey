@@ -136,9 +136,10 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
         $acl = $args['acl'];
 
         // Guest role inherits global permissions and nothing else
-        // Allow user to modify their profile.
         $acl->addRole(HARVARDKEY_GUEST_ROLE);
-        $acl->allow(HARVARDKEY_GUEST_ROLE, 'Users', null, new Omeka_Acl_Assert_User);
+
+        // Allow user to modify their profile.
+        //$acl->allow(HARVARDKEY_GUEST_ROLE, 'Users', null, new Omeka_Acl_Assert_User);
     }
 
     /**
