@@ -31,7 +31,7 @@
     </div>
     <div class="inputs five columns omega">
         <?php echo get_view()->formCheckbox('harvardkey_protect', 1, array('checked' => get_option('harvardkey_protect') ? true : false)); ?>
-        <span class="explanation">&nbsp;Check this field to require visitors to log in before viewing any content</span>
+        <span class="explanation">&nbsp;Check this field to require visitors to log in before viewing any content.</span>
     </div>
 </div>
 <div class="field">
