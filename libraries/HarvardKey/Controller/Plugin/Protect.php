@@ -74,7 +74,8 @@ class HarvardKey_Controller_Plugin_Protect extends Zend_Controller_Plugin_Abstra
      */
     private function _requireLogin($request)
     {
-        if(!get_option('harvardkey_protect')) {
+        $harvardkey_restrict_access = get_option('harvardkey_restrict_access');
+        if(!$harvardkey_restrict_access || $harvardkey_restrict_access == "public") {
             return false;
         }
 

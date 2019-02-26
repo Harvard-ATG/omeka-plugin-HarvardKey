@@ -34,8 +34,7 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
     protected $_options = array(
         'harvardkey_role' => HARVARDKEY_GUEST_ROLE,
         'harvardkey_emails' => '',
-        'harvardkey_protect' => 0,
-        'harvardkey_membersonly' => 1,
+        'harvardkey_restrict_access' => 'public', # public|harvardkey_users_only|site_users_only
     );
 
     /**
@@ -84,7 +83,13 @@ class HarvardKeyPlugin extends Omeka_Plugin_AbstractPlugin
 
         // Added new option in v1.0.1
         if (version_compare($args['old_version'], '1.0.1', '<=')) {
-            set_option('harvardkey_membersonly', 1);
+            $harvardkey_protect = get_option('harvardkey_protect');
+            if($harvardkey_protect) {
+                set_option('harvardkey_restrict_access', 'site_users_only');
+            } else {
+                set_option('harvardkey_restrict_access', 'public');
+            }
+            delete_option('harvardkey_protect');
         }
     }
 

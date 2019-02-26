@@ -43,17 +43,18 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
         // (1) Check that the provided token data is valid
         if(!$this->_token->isValid()) {
             $this->_log("auth failure: harvard key token is invalid");
-            return new Zend_Auth_Result(Zend_Auth_Result::FAILURE_CREDENTIAL_INVALID, null, array('Login failed (invalid token).'));
+            return new Zend_Auth_Result(Zend_Auth_Result::FAILURE_CREDENTIAL_INVALID, null, array('Login failed. Invalid token.'));
         }
 
-        // (2) If only members are allowed to authenticate, check the the user is either in the prescreened list
-        // or has a valid omeka user account.
-        if($this->_isMembersOnly()) {
-            $email_whitelisted = in_array($this->_token->getEmail(), $this->_getEmails());
+        // (2) If site is restricted to site users only, then the user must either be in the whitelist OR they must have an omeka account
+        $email = $this->_token->getEmail();
+        if($this->_isRestrictedToSiteUsers()) {
+            $email_whitelisted = in_array($email, $this->_getEmails());
             if(!$email_whitelisted) {
-                $omeka_user = $this->_findOmekaUserByEmail($this->_token->getEmail());
+                $omeka_user = $this->_findOmekaUserByEmail($email);
                 if(!$omeka_user) {
-                    return new Zend_Auth_Result(Zend_Auth_result::FAILURE, null, array("Harvard Key login restricted to members only."));
+                    $errmsg = "Access Denied. Your email address [$email] is not authorized to access this site. Restricted to site users only.";
+                    return new Zend_Auth_Result(Zend_Auth_result::FAILURE, null, array($errmsg));
                 }
             }
         }
@@ -65,14 +66,14 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
         $harvard_key_user = $this->_createOrUpdateUser();
         if(!$harvard_key_user) {
             $this->_log("auth failure: error creating or updating harvard key user", Zend_Log::ERROR);
-            return new Zend_Auth_Result(Zend_Auth_result::FAILURE, null, array("Login failed because Harvard Key could not be associated with an Omeka account."));
+            return new Zend_Auth_Result(Zend_Auth_result::FAILURE, null, array("Login failed. Harvard Key could not be associated with an Omeka account."));
         }
 
         // (4) Lookup the omeka user record
         $omeka_user = $this->_findOmekaUserById($harvard_key_user->omeka_user_id);
         if(!$omeka_user) {
             $this->_log("auth failure: error fetching omeka user id: {$harvard_key_user->omeka_user_id} for harvard key row id: {$harvard_key_user->id}");
-            return new Zend_Auth_Result(Zend_Auth_result::FAILURE, null, array("Login failed because Omeka account not found."));
+            return new Zend_Auth_Result(Zend_Auth_result::FAILURE, null, array("Login failed. Omeka account not found."));
         } else if(!$omeka_user->active) {
             $this->_log("auth failure: omeka user {$omeka_user->id} is inactive");
             return new Zend_Auth_Result(Zend_Auth_result::FAILURE, $harvard_key_user->omeka_user_id, array("Login failed because Omeka account is inactive. "));
@@ -228,10 +229,9 @@ class HarvardKey_Auth_Adapter implements Zend_Auth_Adapter_Interface
      *
      * @return bool
      */
-    protected function _isMembersOnly()
+    protected function _isRestrictedToSiteUsers()
     {
-        $harvardkey_membersonly = get_option('harvardkey_membersonly');
-        return (bool) $harvardkey_membersonly;
+        return get_option('harvardkey_restrict_access') == "site_users_only";
     }
 
     /**
